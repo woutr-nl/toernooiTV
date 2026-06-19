@@ -1,0 +1,928 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./vendor/react.production.min.js"></script>
+<script src="./vendor/react-dom.production.min.js"></script>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="./vendor/fonts.css" rel="stylesheet">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:#e7e5df;}
+  @keyframes livepulse{0%,100%{opacity:1;}50%{opacity:.28;}}
+  input[type=range]{accent-color:#15171c;}
+</style>
+</helmet>
+
+<div style="font-family:Archivo, sans-serif; color:#1b1a17;">
+
+  <!-- DISPLAY — fullscreen kiosk view (the bare URL) -->
+  <sc-if value="{{ isDisplay }}" hint-placeholder-val="{{ true }}">
+    <div style="position:fixed; inset:0; background:#000; display:flex; align-items:center; justify-content:center; overflow:hidden;">
+      <div style="width:1920px; height:1080px; flex:none; transform:scale({{ fullScale }}); transform-origin:center center;">
+        <dc-import name="Display" hint-size="1920px,1080px"
+          club-name="{{ clubName }}" club-initials="{{ clubInitials }}" club-logo="{{ clubLogo }}" club-no-logo="{{ clubNoLogo }}"
+          clock-label="{{ clockLabel }}" date-label="{{ dateLabel }}"
+          frames="{{ frames }}" dots="{{ dots }}"
+          sponsor-name="{{ sponsorName }}" sponsor-tagline="{{ sponsorTagline }}" sponsor-logo="{{ sponsorLogo }}" sponsor-no-logo="{{ sponsorNoLogo }}"
+          style="width:1920px; height:1080px; display:block;">
+        </dc-import>
+      </div>
+
+      <!-- WIFI SETUP OVERLAY -->
+      <sc-if value="{{ overlaySetup }}" hint-placeholder-val="{{ true }}">
+        <div style="position:absolute; inset:0; z-index:50; background:rgba(8,10,14,.94); display:flex; align-items:center; justify-content:center; font-family:Archivo;">
+          <div style="max-width:60vw; text-align:center;">
+            <div style="display:inline-flex; align-items:center; gap:14px; font:800 1.4vw 'JetBrains Mono'; letter-spacing:.4vw; color:#ffb02e; margin-bottom:2.4vw;">
+              <span style="width:1vw; height:1vw; border-radius:50%; background:#ffb02e; animation:livepulse 1.4s ease-in-out infinite;"></span>WIFI INSTELLEN
+            </div>
+            <div style="font:900 3.4vw Archivo; color:#fff; line-height:1.05; margin-bottom:2.6vw;">Verbind dit scherm met wifi</div>
+            <div style="display:inline-block; text-align:left; font:600 1.6vw Archivo; color:#cdd3dd; line-height:1.9;">
+              <div>1 &nbsp; Pak je telefoon → wifi-instellingen</div>
+              <div>2 &nbsp; Kies het netwerk <span style="font-weight:800; color:#fff;">{{ hotspotName }}</span></div>
+              <div>3 &nbsp; Volg de pagina die verschijnt en kies daar het wifi van de locatie</div>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- OFFLINE BANNER -->
+      <sc-if value="{{ overlayOffline }}" hint-placeholder-val="{{ true }}">
+        <div style="position:absolute; top:0; left:0; right:0; z-index:40; background:#b54708; color:#fff; text-align:center; padding:.7vw 0; font:800 1.1vw Archivo; letter-spacing:.1vw;">Geen internet — livescores gepauzeerd, scherm draait door</div>
+      </sc-if>
+
+      <!-- NOT-YET-COUPLED HINT -->
+      <sc-if value="{{ needsConfig }}" hint-placeholder-val="{{ true }}">
+        <div style="position:absolute; bottom:2.4vw; left:50%; transform:translateX(-50%); z-index:40; background:rgba(8,10,14,.82); color:#dfe3ea; padding:.7vw 1.4vw; border-radius:.7vw; font:700 1vw Archivo;">Nog niet gekoppeld · open <span style="font-family:'JetBrains Mono'; color:#fff;">{{ beheerUrl }}</span></div>
+      </sc-if>
+    </div>
+  </sc-if>
+
+  <!-- BEHEER — settings, reachable only at /beheer -->
+  <sc-if value="{{ isBeheer }}" hint-placeholder-val="{{ true }}">
+    <div style="min-height:100vh; background:#e7e5df;">
+
+    <!-- APP HEADER -->
+    <div style="height:72px; background:#0b0d11; display:flex; align-items:center; justify-content:space-between; padding:0 32px; position:sticky; top:0; z-index:20;">
+      <div style="display:flex; align-items:center; gap:13px;">
+        <div style="width:34px; height:34px; border-radius:9px; background:#fff; display:flex; align-items:center; justify-content:center;">
+          <span style="width:13px; height:13px; border-radius:50%; background:#ff3b3b;"></span>
+        </div>
+        <span style="font:800 20px Archivo; color:#fff; letter-spacing:.3px;">Toernooi TV</span>
+        <span style="font:700 11px 'JetBrains Mono'; letter-spacing:3px; color:#7d8696; padding:4px 9px; border:1px solid rgba(255,255,255,.14); border-radius:6px;">BEHEER</span>
+      </div>
+      <div style="display:flex; align-items:center; gap:18px;">
+        <span style="display:flex; align-items:center; gap:9px; font:700 14px Archivo; color:#9aa3b2;">
+          <span style="width:9px; height:9px; border-radius:50%; background:#37d67a;"></span>{{ liveStatus }}
+        </span>
+        <button onClick="{{ goWeergave }}" style="border:none; cursor:pointer; padding:9px 20px; border-radius:8px; font:700 15px Archivo; background:#fff; color:#0b0d11;">Open weergave →</button>
+      </div>
+    </div>
+
+    <div style="padding:36px 32px 60px;">
+      <div style="max-width:1300px; margin:0 auto; display:grid; grid-template-columns:minmax(0,1fr) minmax(340px,440px); gap:32px; align-items:start;">
+
+        <!-- FORM -->
+        <div style="display:flex; flex-direction:column; gap:22px;">
+
+          <!-- VERBINDING & TOERNOOIEN -->
+          <div style="background:#fff; border:1px solid rgba(0,0,0,.08); border-radius:16px; padding:28px 30px;">
+            <div style="display:flex; align-items:center; gap:10px; margin-bottom:6px;">
+              <span style="font:800 20px Archivo; color:#1b1a17;">Verbinding &amp; toernooien</span>
+              <span style="font:700 10px 'JetBrains Mono'; letter-spacing:1.5px; color:#8a8578; background:#f0eee8; padding:4px 8px; border-radius:6px;">TOERNOOI-API</span>
+            </div>
+            <div style="font:500 14px Archivo; color:#8a8578; margin-bottom:20px;">Log in met je Tournamentsoftware-account; het scherm haalt zelf de verbinding op en vernieuwt die automatisch. Voeg daarna één of meer toernooien toe — ingeschakelde toernooien worden samengevoegd in de rotatie.</div>
+
+            <!-- LOGIN -->
+            <div style="margin-bottom:22px;">
+              <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+                <span style="font:700 12px Archivo; letter-spacing:1.5px; color:#8a8578; text-transform:uppercase;">Tournamentsoftware-account</span>
+                <span style="display:flex; align-items:center; gap:7px; font:600 12px 'JetBrains Mono'; color:{{ cookieDotColor }};"><span style="width:8px; height:8px; border-radius:50%; background:{{ cookieDotColor }};"></span>{{ cookieStatusLabel }}</span>
+              </div>
+              <sc-if value="{{ loggedIn }}" hint-placeholder-val="{{ true }}">
+                <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; padding:13px 15px; border:1px solid rgba(46,157,91,.35); border-radius:10px; background:#f1f8f3;">
+                  <span style="font:700 15px Archivo; color:#1b1a17;">Ingelogd als {{ loginName }}</span>
+                  <button onClick="{{ doLogout }}" style="border:1px solid rgba(0,0,0,.14); background:#fff; cursor:pointer; padding:8px 14px; border-radius:9px; font:700 13px Archivo; color:#56524a; white-space:nowrap;">Uitloggen</button>
+                </div>
+              </sc-if>
+              <sc-if value="{{ loggedOut }}" hint-placeholder-val="{{ true }}">
+                <div style="display:flex; flex-direction:column; gap:10px;">
+                  <input type="text" value="{{ loginUser }}" onChange="{{ onLoginUser }}" placeholder="Gebruikersnaam" style="width:100%; padding:13px 15px; border:1px solid rgba(0,0,0,.14); border-radius:10px; font:600 14px Archivo; color:#1b1a17; background:#faf9f6; outline:none;">
+                  <input type="password" value="{{ loginPass }}" onChange="{{ onLoginPass }}" placeholder="Wachtwoord" style="width:100%; padding:13px 15px; border:1px solid rgba(0,0,0,.14); border-radius:10px; font:600 14px Archivo; color:#1b1a17; background:#faf9f6; outline:none;">
+                  <div style="display:flex; align-items:center; gap:14px;">
+                    <button onClick="{{ doLogin }}" style="border:none; background:#0b0d11; cursor:pointer; padding:12px 22px; border-radius:10px; font:700 14px Archivo; color:#fff; white-space:nowrap;">Login op Tournamentsoftware</button>
+                    <span style="font:600 13px Archivo; color:#8a8578;">{{ loginMsg }}</span>
+                  </div>
+                </div>
+              </sc-if>
+            </div>
+
+            <!-- COOKIE (advanced / fallback) -->
+            <details style="margin-bottom:22px;">
+              <summary style="cursor:pointer; font:700 12px Archivo; letter-spacing:1.5px; color:#8a8578; text-transform:uppercase;">Handmatige sessiecookie (geavanceerd)</summary>
+              <div style="margin-top:12px;">
+                <input type="password" value="{{ cookieInput }}" onChange="{{ onCookieInput }}" placeholder="Cookie: ASP.NET_SessionId=…  (leeg laten = ongewijzigd)" style="width:100%; padding:13px 15px; border:1px solid rgba(0,0,0,.14); border-radius:10px; font:600 14px 'JetBrains Mono'; color:#1b1a17; background:#faf9f6; outline:none;">
+                <sc-if value="{{ cookieSetVal }}" hint-placeholder-val="{{ true }}">
+                  <button onClick="{{ clearCookie }}" style="margin-top:10px; border:1px solid rgba(0,0,0,.14); background:#fff; cursor:pointer; padding:8px 14px; border-radius:9px; font:700 13px Archivo; color:#56524a;">Cookie wissen</button>
+                </sc-if>
+              </div>
+            </details>
+
+            <!-- TOURNAMENTS -->
+            <div style="font:700 12px Archivo; letter-spacing:1.5px; color:#8a8578; text-transform:uppercase; margin-bottom:10px;">Toernooien</div>
+            <sc-if value="{{ hasTournaments }}">
+              <div style="display:flex; flex-direction:column; gap:12px; margin-bottom:14px;">
+                <sc-for list="{{ tournamentRows }}" as="tr" hint-placeholder-count="2">
+                  <div style="display:flex; align-items:center; gap:10px;">
+                    <input type="text" value="{{ tr.label }}" onChange="{{ tr.onLabel }}" placeholder="Naam" style="width:150px; padding:11px 13px; border:1px solid rgba(0,0,0,.14); border-radius:10px; font:600 14px Archivo; color:#1b1a17; background:#faf9f6; outline:none;">
+                    <input type="text" value="{{ tr.code }}" onChange="{{ tr.onCode }}" placeholder="Toernooicode (UUID)" style="flex:1; min-width:0; padding:11px 13px; border:1px solid rgba(0,0,0,.14); border-radius:10px; font:600 13px 'JetBrains Mono'; color:#1b1a17; background:#faf9f6; outline:none;">
+                    <button onClick="{{ tr.onToggle }}" title="In rotatie tonen" style="position:relative; flex:none; width:52px; height:30px; border-radius:999px; border:none; cursor:pointer; padding:0; background:{{ tr.enTrack }}; transition:background .2s;"><span style="position:absolute; top:3px; left:3px; width:24px; height:24px; border-radius:50%; background:#fff; box-shadow:0 1px 2px rgba(0,0,0,.3); transform:{{ tr.enKnob }}; transition:transform .2s;"></span></button>
+                    <button onClick="{{ tr.onRemove }}" title="Verwijderen" style="flex:none; width:34px; height:34px; border:1px solid rgba(0,0,0,.14); background:#fff; cursor:pointer; border-radius:9px; font:700 16px Archivo; color:#a8453b; line-height:1;">×</button>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-if>
+            <!-- add a tournament by picking it from the account (no UUID needed) -->
+            <select onChange="{{ onPickTournament }}" value="{{ pickValue }}" style="width:100%; padding:12px 14px; border:1.5px dashed rgba(0,0,0,.22); border-radius:10px; font:700 14px Archivo; color:#56524a; background:#faf9f6; cursor:pointer; outline:none;">
+              <option value="">+ Toernooi toevoegen…</option>
+              <sc-for list="{{ availOptions }}" as="o" hint-placeholder-count="3">
+                <option value="{{ o.code }}">{{ o.label }}</option>
+              </sc-for>
+            </select>
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-top:8px;">
+              <span style="font:500 12px Archivo; color:#8a8578;">{{ availMsg }}</span>
+              <button onClick="{{ addTournament }}" style="border:none; background:none; cursor:pointer; padding:4px; font:600 12px Archivo; color:#8a8578; text-decoration:underline;">handmatig met code</button>
+            </div>
+
+            <!-- LIVE STATUS -->
+            <sc-if value="{{ hasConn }}">
+              <div style="margin-top:18px; padding-top:16px; border-top:1px solid rgba(0,0,0,.06); display:flex; flex-direction:column; gap:8px;">
+                <sc-for list="{{ connRows }}" as="cn" hint-placeholder-count="2">
+                  <div style="display:flex; align-items:center; gap:10px;">
+                    <span style="width:9px; height:9px; border-radius:50%; background:{{ cn.dot }};"></span>
+                    <span style="font:700 14px Archivo; color:#1b1a17;">{{ cn.label }}</span>
+                    <span style="font:600 13px 'JetBrains Mono'; color:{{ cn.color }};">{{ cn.msg }}</span>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-if>
+
+            <div style="display:flex; align-items:center; gap:14px; margin-top:18px;">
+              <button onClick="{{ saveConfig }}" style="border:none; background:#0b0d11; cursor:pointer; padding:12px 22px; border-radius:10px; font:700 14px Archivo; color:#fff;">Opslaan &amp; verbinden</button>
+              <span style="font:600 14px Archivo; color:#56524a;">{{ saveMsg }}</span>
+            </div>
+          </div>
+
+          <!-- CLUB -->
+          <div style="background:#fff; border:1px solid rgba(0,0,0,.08); border-radius:16px; padding:28px 30px;">
+            <div style="font:800 20px Archivo; color:#1b1a17; margin-bottom:20px;">Club</div>
+            <div style="margin-bottom:20px;">
+              <div style="font:700 12px Archivo; letter-spacing:1.5px; color:#8a8578; text-transform:uppercase; margin-bottom:8px;">Naam</div>
+              <input type="text" value="{{ clubName }}" onChange="{{ onClubName }}" style="width:100%; padding:13px 15px; border:1px solid rgba(0,0,0,.14); border-radius:10px; font:600 16px Archivo; color:#1b1a17; background:#faf9f6; outline:none;">
+            </div>
+            <div>
+              <div style="font:700 12px Archivo; letter-spacing:1.5px; color:#8a8578; text-transform:uppercase; margin-bottom:8px;">Clublogo</div>
+              <sc-if value="{{ clubHasLogo }}">
+                <div style="display:flex; align-items:center; gap:14px;">
+                  <div style="height:72px; padding:10px 18px; border:1px solid rgba(0,0,0,.12); border-radius:12px; background:#0b0d11; display:flex; align-items:center; justify-content:center;">
+                    {{ clubLogoPreview }}
+                  </div>
+                  <button onClick="{{ clearClubLogo }}" style="border:1px solid rgba(0,0,0,.14); background:#fff; cursor:pointer; padding:10px 16px; border-radius:9px; font:700 14px Archivo; color:#56524a;">Verwijderen</button>
+                </div>
+              </sc-if>
+              <sc-if value="{{ clubNoLogo }}" hint-placeholder-val="{{ true }}">
+                <label style="display:flex; align-items:center; justify-content:center; gap:10px; height:84px; border:1.5px dashed rgba(0,0,0,.22); border-radius:12px; background:#faf9f6; cursor:pointer; color:#8a8578; font:600 15px Archivo;">
+                  <input type="file" accept="image/*" onChange="{{ onClubLogo }}" style="display:none;">
+                  + Klik om logo te uploaden (PNG met transparantie)
+                </label>
+              </sc-if>
+            </div>
+          </div>
+
+          <!-- SPONSOR -->
+          <div style="background:#fff; border:1px solid rgba(0,0,0,.08); border-radius:16px; padding:28px 30px;">
+            <div style="font:800 20px Archivo; color:#1b1a17; margin-bottom:6px;">Sponsor</div>
+            <div style="font:500 14px Archivo; color:#8a8578; margin-bottom:20px;">Wordt als volledige slide in de rotatie getoond.</div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:20px;">
+              <div>
+                <div style="font:700 12px Archivo; letter-spacing:1.5px; color:#8a8578; text-transform:uppercase; margin-bottom:8px;">Naam</div>
+                <input type="text" value="{{ sponsorName }}" onChange="{{ onSponsorName }}" style="width:100%; padding:13px 15px; border:1px solid rgba(0,0,0,.14); border-radius:10px; font:600 16px Archivo; color:#1b1a17; background:#faf9f6; outline:none;">
+              </div>
+              <div>
+                <div style="font:700 12px Archivo; letter-spacing:1.5px; color:#8a8578; text-transform:uppercase; margin-bottom:8px;">Tagline</div>
+                <input type="text" value="{{ sponsorTagline }}" onChange="{{ onSponsorTagline }}" style="width:100%; padding:13px 15px; border:1px solid rgba(0,0,0,.14); border-radius:10px; font:600 16px Archivo; color:#1b1a17; background:#faf9f6; outline:none;">
+              </div>
+            </div>
+            <div>
+              <div style="font:700 12px Archivo; letter-spacing:1.5px; color:#8a8578; text-transform:uppercase; margin-bottom:8px;">Sponsorlogo</div>
+              <sc-if value="{{ sponsorHasLogo }}">
+                <div style="display:flex; align-items:center; gap:14px;">
+                  <div style="height:88px; padding:12px 22px; border:1px solid rgba(0,0,0,.12); border-radius:12px; background:#0b0d11; display:flex; align-items:center; justify-content:center;">
+                    {{ sponsorLogoPreview }}
+                  </div>
+                  <button onClick="{{ clearSponsorLogo }}" style="border:1px solid rgba(0,0,0,.14); background:#fff; cursor:pointer; padding:10px 16px; border-radius:9px; font:700 14px Archivo; color:#56524a;">Verwijderen</button>
+                </div>
+              </sc-if>
+              <sc-if value="{{ sponsorNoLogo }}" hint-placeholder-val="{{ true }}">
+                <label style="display:flex; align-items:center; justify-content:center; gap:10px; height:96px; border:1.5px dashed rgba(0,0,0,.22); border-radius:12px; background:#faf9f6; cursor:pointer; color:#8a8578; font:600 15px Archivo;">
+                  <input type="file" accept="image/*" onChange="{{ onSponsorLogo }}" style="display:none;">
+                  + Klik om sponsorlogo te uploaden
+                </label>
+              </sc-if>
+            </div>
+          </div>
+
+          <!-- BANEN (demo van API-data) -->
+          <div style="background:#fff; border:1px solid rgba(0,0,0,.08); border-radius:16px; padding:28px 30px;">
+            <div style="display:flex; align-items:center; gap:10px; margin-bottom:6px;">
+              <span style="font:800 20px Archivo; color:#1b1a17;">Banen</span>
+              <span style="font:700 10px 'JetBrains Mono'; letter-spacing:1.5px; color:#8a8578; background:#f0eee8; padding:4px 8px; border-radius:6px;">DEMO · STRAKS VIA TOERNOOI-API</span>
+            </div>
+            <div style="font:500 14px Archivo; color:#8a8578; margin-bottom:20px;">Het scherm splitst automatisch in pagina's van max. 4 banen. Schuif omhoog om te zien wat er bij 9+ banen gebeurt.</div>
+            <div style="padding-bottom:18px; border-bottom:1px solid rgba(0,0,0,.06);">
+              <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;"><span style="display:flex; align-items:center; gap:10px;"><span style="width:12px; height:12px; border-radius:50%; background:{{ tennisColor }};"></span><span style="font:700 15px Archivo; color:#1b1a17;">Tennisbanen</span></span><span style="font:700 16px 'JetBrains Mono'; color:#1b1a17;">{{ tennisBanen }} · {{ tennisPagesLabel }}</span></div>
+              <input type="range" min="1" max="12" step="1" value="{{ tennisBanen }}" onChange="{{ onTennisBanen }}" style="width:100%;">
+            </div>
+            <div style="padding-top:18px;">
+              <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;"><span style="display:flex; align-items:center; gap:10px;"><span style="width:12px; height:12px; border-radius:50%; background:{{ padelColor }};"></span><span style="font:700 15px Archivo; color:#1b1a17;">Padelbanen</span></span><span style="font:700 16px 'JetBrains Mono'; color:#1b1a17;">{{ padelBanen }} · {{ padelPagesLabel }}</span></div>
+              <input type="range" min="1" max="12" step="1" value="{{ padelBanen }}" onChange="{{ onPadelBanen }}" style="width:100%;">
+            </div>
+          </div>
+
+          <!-- ROTATIE -->
+          <div style="background:#fff; border:1px solid rgba(0,0,0,.08); border-radius:16px; padding:28px 30px;">
+            <div style="font:800 20px Archivo; color:#1b1a17; margin-bottom:14px;">Schermrotatie</div>
+            <div style="display:flex; align-items:center; justify-content:space-between; padding:14px 0; border-bottom:1px solid rgba(0,0,0,.06);">
+              <div style="display:flex; align-items:center; gap:12px;"><span style="width:12px; height:12px; border-radius:50%; background:{{ tennisColor }};"></span><span style="font:700 16px Archivo; color:#1b1a17;">Tennis-pagina's</span></div>
+              <button onClick="{{ toggleTennis }}" style="position:relative; width:52px; height:30px; border-radius:999px; border:none; cursor:pointer; padding:0; background:{{ tnTrack }}; transition:background .2s;"><span style="position:absolute; top:3px; left:3px; width:24px; height:24px; border-radius:50%; background:#fff; box-shadow:0 1px 2px rgba(0,0,0,.3); transform:{{ tnKnob }}; transition:transform .2s;"></span></button>
+            </div>
+            <div style="display:flex; align-items:center; justify-content:space-between; padding:14px 0; border-bottom:1px solid rgba(0,0,0,.06);">
+              <div style="display:flex; align-items:center; gap:12px;"><span style="width:12px; height:12px; border-radius:50%; background:{{ padelColor }};"></span><span style="font:700 16px Archivo; color:#1b1a17;">Padel-pagina's</span></div>
+              <button onClick="{{ togglePadel }}" style="position:relative; width:52px; height:30px; border-radius:999px; border:none; cursor:pointer; padding:0; background:{{ pdTrack }}; transition:background .2s;"><span style="position:absolute; top:3px; left:3px; width:24px; height:24px; border-radius:50%; background:#fff; box-shadow:0 1px 2px rgba(0,0,0,.3); transform:{{ pdKnob }}; transition:transform .2s;"></span></button>
+            </div>
+            <div style="display:flex; align-items:center; justify-content:space-between; padding:14px 0; border-bottom:1px solid rgba(0,0,0,.06);">
+              <div style="display:flex; align-items:center; gap:12px;"><span style="width:12px; height:12px; border-radius:50%; background:#7da7d4;"></span><span style="font:700 16px Archivo; color:#1b1a17;">Sponsorslide</span></div>
+              <button onClick="{{ toggleSponsor }}" style="position:relative; width:52px; height:30px; border-radius:999px; border:none; cursor:pointer; padding:0; background:{{ spTrack }}; transition:background .2s;"><span style="position:absolute; top:3px; left:3px; width:24px; height:24px; border-radius:50%; background:#fff; box-shadow:0 1px 2px rgba(0,0,0,.3); transform:{{ spKnob }}; transition:transform .2s;"></span></button>
+            </div>
+            <div style="display:flex; align-items:center; justify-content:space-between; padding:14px 0; border-bottom:1px solid rgba(0,0,0,.06);">
+              <div style="display:flex; align-items:center; gap:12px;"><span style="width:12px; height:12px; border-radius:50%; background:#cfd6e0;"></span><span style="font:700 16px Archivo; color:#1b1a17;">Uitslagen</span></div>
+              <button onClick="{{ toggleResults }}" style="position:relative; width:52px; height:30px; border-radius:999px; border:none; cursor:pointer; padding:0; background:{{ rsTrack }}; transition:background .2s;"><span style="position:absolute; top:3px; left:3px; width:24px; height:24px; border-radius:50%; background:#fff; box-shadow:0 1px 2px rgba(0,0,0,.3); transform:{{ rsKnob }}; transition:transform .2s;"></span></button>
+            </div>
+            <div style="padding-top:20px;">
+              <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;"><span style="font:700 14px Archivo; color:#56524a;">Seconden per baan-pagina</span><span style="font:700 16px 'JetBrains Mono'; color:#1b1a17;">{{ secCourt }}s</span></div>
+              <input type="range" min="4" max="20" step="1" value="{{ secCourt }}" onChange="{{ onSecCourt }}" style="width:100%;">
+            </div>
+            <div style="padding-top:18px;">
+              <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;"><span style="font:700 14px Archivo; color:#56524a;">Seconden per sponsorslide</span><span style="font:700 16px 'JetBrains Mono'; color:#1b1a17;">{{ secSponsor }}s</span></div>
+              <input type="range" min="3" max="15" step="1" value="{{ secSponsor }}" onChange="{{ onSecSponsor }}" style="width:100%;">
+            </div>
+          </div>
+
+          <!-- KLEUREN -->
+          <div style="background:#fff; border:1px solid rgba(0,0,0,.08); border-radius:16px; padding:28px 30px;">
+            <div style="font:800 20px Archivo; color:#1b1a17; margin-bottom:18px;">Sportkleuren</div>
+            <div style="display:flex; gap:32px;">
+              <div style="display:flex; align-items:center; gap:14px;">
+                <input type="color" value="{{ tennisColor }}" onChange="{{ onTennisColor }}" style="width:54px; height:42px; border:1px solid rgba(0,0,0,.14); border-radius:10px; background:none; cursor:pointer; padding:2px;">
+                <div style="display:flex; flex-direction:column;"><span style="font:700 15px Archivo; color:#1b1a17;">Tennis</span><span style="font:600 13px 'JetBrains Mono'; color:#8a8578; text-transform:uppercase;">{{ tennisColor }}</span></div>
+              </div>
+              <div style="display:flex; align-items:center; gap:14px;">
+                <input type="color" value="{{ padelColor }}" onChange="{{ onPadelColor }}" style="width:54px; height:42px; border:1px solid rgba(0,0,0,.14); border-radius:10px; background:none; cursor:pointer; padding:2px;">
+                <div style="display:flex; flex-direction:column;"><span style="font:700 15px Archivo; color:#1b1a17;">Padel</span><span style="font:600 13px 'JetBrains Mono'; color:#8a8578; text-transform:uppercase;">{{ padelColor }}</span></div>
+              </div>
+            </div>
+            <button onClick="{{ resetSettings }}" style="margin-top:24px; border:1px solid rgba(0,0,0,.14); background:#faf9f6; cursor:pointer; padding:11px 18px; border-radius:10px; font:700 14px Archivo; color:#56524a;">Herstel standaardinstellingen</button>
+          </div>
+
+        </div>
+
+        <!-- LIVE PREVIEW -->
+        <div style="position:sticky; top:96px; display:flex; flex-direction:column; gap:14px;">
+          <div style="font:700 12px Archivo; letter-spacing:2px; color:#8a8578; text-transform:uppercase;">Live voorbeeld</div>
+          <div ref="{{ setSmallBox }}" style="width:100%; aspect-ratio:16 / 9; border-radius:10px; overflow:hidden; box-shadow:0 12px 34px rgba(0,0,0,.22); background:#000; position:relative;">
+            <div style="transform:scale({{ smallScale }}); transform-origin:top left; width:1920px; height:1080px;">
+              <dc-import name="Display" hint-size="1920px,1080px"
+                club-name="{{ clubName }}" club-initials="{{ clubInitials }}" club-logo="{{ clubLogo }}" club-no-logo="{{ clubNoLogo }}"
+                clock-label="{{ clockLabel }}" date-label="{{ dateLabel }}"
+                frames="{{ frames }}" dots="{{ dots }}"
+                sponsor-name="{{ sponsorName }}" sponsor-tagline="{{ sponsorTagline }}" sponsor-logo="{{ sponsorLogo }}" sponsor-no-logo="{{ sponsorNoLogo }}"
+                style="width:1920px; height:1080px; display:block;">
+              </dc-import>
+            </div>
+          </div>
+          <div style="display:flex; align-items:center; gap:14px; padding:0 2px;">
+            <span style="font:700 15px Archivo; color:#1b1a17;">{{ currentLabel }}</span>
+            <div style="display:flex; gap:6px;">
+              <sc-for list="{{ dots }}" as="d" hint-placeholder-count="3">
+                <span style="width:22px; height:5px; border-radius:3px; background:#1b1a17; opacity:{{ d.op }}; transition:opacity .4s;"></span>
+              </sc-for>
+            </div>
+          </div>
+          <button onClick="{{ goWeergave }}" style="margin-top:4px; border:none; background:#0b0d11; cursor:pointer; padding:14px; border-radius:11px; font:700 15px Archivo; color:#fff;">Open weergave-modus →</button>
+        </div>
+
+      </div>
+    </div>
+    </div>
+  </sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  DEFAULTS = {
+    clubName: 'Toernooi TV',
+    clubLogo: '',
+    sponsorName: 'Jouw Sponsor',
+    sponsorTagline: 'Officiële partner van dit toernooi',
+    sponsorLogo: '',
+    showTennis: true,
+    showPadel: true,
+    showSponsor: true,
+    showResults: true,
+    secCourt: 8,
+    secSponsor: 6,
+    tennisColor: '#c8f24a',
+    padelColor: '#3da9fc',
+    tennisBanen: 6,
+    padelBanen: 4,
+  };
+
+  LSKEY = 'toernooitv_settings_v2';
+
+  // Demo data pools — in productie komt dit uit de toernooi-API.
+  TENNIS_POOL = [
+    ['R. van der Berg', 'T. Jansen', 'Open Toernooi'],
+    ['L. de Wit', 'K. Mulder', 'Open Toernooi'],
+    ['N. Bakker', 'P. Vermeer', 'Open Toernooi'],
+    ['D. Visser', 'F. Hofman', 'Jeugd Cup'],
+    ['S. Koster', 'M. de Jong', 'Open Toernooi'],
+    ['J. Willemsen', 'R. Prins', 'Veteranen 35+'],
+    ['A. Smeets', 'C. van Dijk', 'Jeugd Cup'],
+    ['E. Bos', 'H. Linde', 'Open Toernooi'],
+  ];
+  PADEL_POOL = [
+    ['de Vries / Smit', 'el Amrani / Janssen', 'Padel Masters'],
+    ['Kok / Maas', 'Peeters / Dijkstra', 'Padel Masters'],
+    ['Bos / Vos', 'Hendriks / Willems', 'Padel Masters'],
+    ['Brouwer / Timmermans', 'Scholten / Postma', 'Jeugd Cup'],
+    ['Mol / Aarts', 'Daatselaar / Knol', 'Padel Masters'],
+    ['Faber / Hoekstra', 'Veen / Driessen', 'Mix Toernooi'],
+    ['Lammers / Kuiper', 'Bruin / Sanders', 'Padel Masters'],
+    ['Graaf / Vink', 'Schipper / Reijnders', 'Mix Toernooi'],
+  ];
+  // Demo results [category, winner, loser, score] — only shown when not connected.
+  TENNIS_RESULTS = [
+    ['HE 1', 'R. van der Berg', 'T. Jansen', '6-3 6-4'],
+    ['HE 1', 'L. de Wit', 'K. Mulder', '7-5 6-2'],
+    ['DE 2', 'N. Bakker', 'P. Vermeer', '6-4 3-6 6-1'],
+    ['Jeugd Cup', 'D. Visser', 'F. Hofman', '6-2 6-2'],
+    ['Veteranen 35+', 'J. Willemsen', 'R. Prins', '7-6 6-4'],
+    ['HE 2', 'S. Koster', 'M. de Jong', '6-1 6-3'],
+  ];
+  PADEL_RESULTS = [
+    ['HD 3', 'de Vries / Smit', 'el Amrani / Janssen', '6-4 6-4'],
+    ['Padel Masters', 'Kok / Maas', 'Peeters / Dijkstra', '7-5 4-6 6-3'],
+    ['DD 2', 'Bos / Vos', 'Hendriks / Willems', '6-2 6-1'],
+    ['Mix Toernooi', 'Faber / Hoekstra', 'Veen / Driessen', '6-3 7-5'],
+    ['HD 3', 'Mol / Aarts', 'Daatselaar / Knol', '6-4 6-4'],
+    ['Padel Masters', 'Lammers / Kuiper', 'Bruin / Sanders', '6-0 6-2'],
+  ];
+
+  state = {
+    settings: { ...this.DEFAULTS }, tab: 'display', t: 0,
+    bigScale: 0.45, smallScale: 0.22, fullScale: 0.5, board: null, status: null,
+    // connection config (lives server-side; cookie only ever shown masked)
+    cfg: { cookieSet: false, cookieHint: '', tournaments: [], auth: null, login: null },
+    cookieInput: '', saveMsg: '',
+    loginUser: '', loginPass: '', loginMsg: '',
+    available: [], availMsg: '', pickValue: '',
+  };
+
+  BOARD_POLL_MS = 15000; // poll the tp-api proxy on a fixed interval (independent of tab focus)
+
+  componentDidMount() {
+    let saved = null;
+    try { saved = JSON.parse(localStorage.getItem(this.LSKEY) || 'null'); } catch (e) {}
+    if (saved && typeof saved === 'object') this.setState({ settings: { ...this.DEFAULTS, ...saved } });
+    this._iv = setInterval(() => this.setState(s => ({ t: s.t + 1 })), 1000);
+    this._fetchConfig();
+    this._fetchMyTournaments();
+    this._fetchBoard();
+    this._bv = setInterval(this._fetchBoard, this.BOARD_POLL_MS);
+    this._fetchStatus();
+    this._sv = setInterval(this._fetchStatus, 12000);
+    this._missed = 0;
+    this._hb = setInterval(this._heartbeat, 10000);
+    this._dr = setInterval(this._maybeDailyReload, 60000);
+    this._applyHash();
+    this._onHash = () => this._applyHash();
+    window.addEventListener('hashchange', this._onHash);
+    this._onResize = () => this._measure();
+    window.addEventListener('resize', this._onResize);
+    this._measure();
+  }
+  componentWillUnmount() { clearInterval(this._iv); clearInterval(this._bv); clearInterval(this._sv); clearInterval(this._hb); clearInterval(this._dr); window.removeEventListener('hashchange', this._onHash); window.removeEventListener('resize', this._onResize); }
+
+  // Device/network status for the on-screen overlay (online? on the setup hotspot?).
+  _fetchStatus = () => {
+    fetch('/status', { cache: 'no-store' })
+      .then(r => (r.ok ? r.json() : null))
+      .then(st => { if (st) this.setState({ status: st }); })
+      .catch(() => {});
+  };
+
+  // Heartbeat watchdog: if the server is unreachable for ~60s, reload the page
+  // so the kiosk self-heals once the server (systemd Restart=always) is back.
+  _heartbeat = () => {
+    fetch('/health', { cache: 'no-store' })
+      .then(r => { if (r.ok) { this._missed = 0; } else { this._bumpMissed(); } })
+      .catch(() => this._bumpMissed());
+  };
+  _bumpMissed = () => { this._missed = (this._missed || 0) + 1; if (this._missed >= 6) location.reload(); };
+
+  // Once-daily refresh (04:00) to keep a long-running kiosk healthy.
+  _maybeDailyReload = () => { const d = new Date(); if (d.getHours() === 4 && d.getMinutes() === 0) location.reload(); };
+
+  // Routing: the bare URL is the fullscreen display; settings live behind a hash
+  // (#beheer), which the server also exposes at the tidy /beheer path.
+  _applyHash = () => {
+    const p = (location.pathname || '').toLowerCase();
+    const h = (location.hash || '').replace(/^#\/?/, '').toLowerCase();
+    const beheer = /\/(beheer|instellingen|settings)\/?$/.test(p) ||
+      h === 'beheer' || h === 'instellingen' || h === 'config' || h === 'settings';
+    this.setState({ tab: beheer ? 'beheer' : 'display' });
+  };
+
+  // Pull live court data from the local proxy (server.py /board). Fails quietly
+  // — when the proxy is absent or has no cookie, the UI uses its demo pools.
+  _fetchBoard = () => {
+    fetch('/board', { cache: 'no-store' })
+      .then(r => (r.ok ? r.json() : null))
+      .then(b => { if (b) this.setState({ board: b }); })
+      .catch(() => {});
+  };
+
+  // Connection config (cookie + tournament list), managed server-side.
+  _cfgOf = c => ({ cookieSet: !!c.cookieSet, cookieHint: c.cookieHint || '', tournaments: c.tournaments || [], auth: c.auth || null, login: c.login || null });
+  _fetchConfig = () => {
+    fetch('/config', { cache: 'no-store' })
+      .then(r => (r.ok ? r.json() : null))
+      .then(c => { if (c) this.setState({ cfg: this._cfgOf(c) }); })
+      .catch(() => {});
+  };
+  _mutTournaments(fn) {
+    this.setState(s => {
+      const tournaments = s.cfg.tournaments.map(t => ({ ...t }));
+      fn(tournaments);
+      return { cfg: { ...s.cfg, tournaments }, saveMsg: '' };
+    });
+  }
+  addTournament = () => this._mutTournaments(ts => ts.push({ code: '', label: 'Toernooi ' + (ts.length + 1), enabled: true }));
+  removeTournament = i => this._mutTournaments(ts => ts.splice(i, 1));
+  setTournamentField = (i, key, val) => this._mutTournaments(ts => { if (ts[i]) ts[i][key] = val; });
+  onCookieInput = e => this.setState({ cookieInput: e.target.value, saveMsg: '' });
+  saveConfig = () => {
+    const body = { tournaments: this.state.cfg.tournaments };
+    if (this.state.cookieInput.trim()) body.cookie = this.state.cookieInput.trim();
+    this.setState({ saveMsg: 'Opslaan…' });
+    fetch('/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      .then(r => r.json())
+      .then(c => {
+        if (c && c.ok) {
+          this.setState({ cfg: this._cfgOf(c), cookieInput: '', saveMsg: 'Opgeslagen ✓' });
+          this._fetchBoard();
+        } else { this.setState({ saveMsg: (c && c.error) || 'Opslaan mislukt' }); }
+      })
+      .catch(() => this.setState({ saveMsg: 'Proxy niet bereikbaar — draait server.py?' }));
+  };
+  clearCookie = () => {
+    fetch('/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ clearCookie: true }) })
+      .then(r => r.json())
+      .then(c => { if (c && c.ok) this.setState({ cfg: this._cfgOf(c), saveMsg: 'Cookie gewist' }); })
+      .catch(() => {});
+  };
+  // Tournamentsoftware login: the server logs in, captures the cookie, and keeps
+  // the credentials so it can auto-renew the cookie when it expires.
+  onLoginUser = e => this.setState({ loginUser: e.target.value, loginMsg: '' });
+  onLoginPass = e => this.setState({ loginPass: e.target.value, loginMsg: '' });
+  doLogin = () => {
+    const user = this.state.loginUser.trim();
+    if (!user || !this.state.loginPass) { this.setState({ loginMsg: 'Vul naam en wachtwoord in' }); return; }
+    this.setState({ loginMsg: 'Inloggen…' });
+    fetch('/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user, password: this.state.loginPass, store: true }) })
+      .then(r => r.json())
+      .then(c => {
+        if (c && c.ok) { this.setState({ cfg: this._cfgOf(c), loginPass: '', loginMsg: c.message || 'Ingelogd ✓' }); this._fetchBoard(); this._fetchMyTournaments(); }
+        else { this.setState({ loginMsg: (c && c.error) || 'Inloggen mislukt' }); }
+      })
+      .catch(() => this.setState({ loginMsg: 'Proxy niet bereikbaar — draait server.py?' }));
+  };
+  doLogout = () => {
+    fetch('/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ clearLogin: true, clearCookie: true }) })
+      .then(r => r.json())
+      .then(c => { if (c && c.ok) this.setState({ cfg: this._cfgOf(c), loginUser: '', loginPass: '', loginMsg: '', available: [] }); })
+      .catch(() => {});
+  };
+  // The account's tournaments, for the add-tournament dropdown.
+  _fetchMyTournaments = () => {
+    fetch('/my-tournaments', { cache: 'no-store' })
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => { if (d) this.setState({ available: d.tournaments || [], availMsg: d.ok ? '' : (d.error || '') }); })
+      .catch(() => {});
+  };
+  // Pick a tournament from the dropdown → add it (code+name) and save immediately.
+  onPickTournament = e => {
+    const code = e.target.value;
+    this.setState({ pickValue: '' });
+    if (!code) return;
+    const t = (this.state.available || []).find(x => x.code === code);
+    if (!t) return;
+    const cur = this.state.cfg.tournaments || [];
+    if (cur.some(x => x.code === code)) { this.setState({ saveMsg: 'Al toegevoegd' }); return; }
+    const next = [...cur.map(x => ({ ...x })), { code, label: (t.name || 'Toernooi').slice(0, 40), enabled: true }];
+    this.setState({ saveMsg: 'Toevoegen…' });
+    fetch('/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tournaments: next }) })
+      .then(r => r.json())
+      .then(c => { if (c && c.ok) { this.setState({ cfg: this._cfgOf(c), saveMsg: 'Toegevoegd ✓' }); this._fetchBoard(); } else { this.setState({ saveMsg: (c && c.error) || 'Toevoegen mislukt' }); } })
+      .catch(() => this.setState({ saveMsg: 'Proxy niet bereikbaar — draait server.py?' }));
+  };
+
+  setBigBox = el => { this._bigBox = el; if (el) this._measure(); };
+  setSmallBox = el => { this._smallBox = el; if (el) this._measure(); };
+  _measure = () => {
+    const b = this._bigBox, s = this._smallBox;
+    const fw = window.innerWidth, fh = window.innerHeight;
+    this.setState(() => {
+      const ns = {};
+      if (b && b.clientWidth) ns.bigScale = b.clientWidth / 1920;
+      if (s && s.clientWidth) ns.smallScale = s.clientWidth / 1920;
+      // fullscreen: contain-fit 1920×1080 inside the viewport (letterbox)
+      if (fw && fh) ns.fullScale = Math.min(fw / 1920, fh / 1080);
+      return Object.keys(ns).length ? ns : null;
+    });
+  };
+
+  // Navigation between the fullscreen display and the settings page.
+  goWeergave = () => { location.href = '/'; };
+  goBeheer = () => { location.href = '/beheer'; };
+
+  update(patch) {
+    this.setState(s => {
+      const settings = { ...s.settings, ...patch };
+      try { localStorage.setItem(this.LSKEY, JSON.stringify(settings)); } catch (e) {}
+      return { settings };
+    });
+  }
+
+  readFile(e, key) {
+    const f = e.target.files && e.target.files[0];
+    if (!f) return;
+    const r = new FileReader();
+    r.onload = () => this.update({ [key]: r.result });
+    r.readAsDataURL(f);
+  }
+
+  // how many pages a court count splits into (max 4 tiles per page)
+  pagesFor(n) { return n > 0 ? Math.ceil(n / 4) : 0; }
+
+  renderVals() {
+    const s = this.state.settings;
+    const t = this.state.t;
+
+    const now = new Date();
+    const pad = n => String(n).padStart(2, '0');
+    const clockLabel = pad(now.getHours()) + ':' + pad(now.getMinutes());
+    const days = ['zondag','maandag','dinsdag','woensdag','donderdag','vrijdag','zaterdag'];
+    const months = ['januari','februari','maart','april','mei','juni','juli','augustus','september','oktober','november','december'];
+    const dateLabel = days[now.getDay()] + ' ' + now.getDate() + ' ' + months[now.getMonth()];
+
+    const fmtTime = idx => { const tot = 14 * 60 + 45 + idx * 15; return pad(Math.floor(tot / 60) % 24) + ':' + pad(tot % 60); };
+
+    // Build a court list (this is the shape the API will return).
+    const genCourts = (pool, base, label, accent, n) => {
+      const playing = Math.max(1, Math.round(n * 0.6));
+      const out = []; let ni = 0;
+      for (let i = 1; i <= n; i++) {
+        const m = pool[(i - 1) % pool.length];
+        const isPlay = i <= playing;
+        const timeLabel = isPlay ? '' : ('ca. ' + fmtTime(ni));
+        if (!isPlay) ni++;
+        out.push({ key: base + '-' + i, base, num: i, sportLabel: label, accent, tournament: m[2], t1: m[0], t2: m[1], isPlaying: isPlay, isNext: !isPlay, isIdle: false, isMatch: true, timeLabel, gridSpan: 'auto' });
+      }
+      return out;
+    };
+
+    // even split into pages of max 4
+    const paginate = courts => {
+      const n = courts.length; if (!n) return [];
+      const pages = Math.ceil(n / 4), per = Math.floor(n / pages), extra = n % pages;
+      const chunks = []; let idx = 0;
+      for (let p = 0; p < pages; p++) {
+        const size = per + (p < extra ? 1 : 0);
+        const chunk = courts.slice(idx, idx + size); idx += size;
+        if (chunk.length > 1 && chunk.length % 2 === 1) chunk[chunk.length - 1] = { ...chunk[chunk.length - 1], gridSpan: '1 / -1' };
+        chunks.push(chunk);
+      }
+      return chunks;
+    };
+    const sub = list => [...new Set(list.map(c => c.tournament))].slice(0, 3).join(' · ');
+
+    // Demo pools are PREVIEW-ONLY: they fill the admin's live preview so the
+    // layout is visible before a tournament is connected. The real on-TV display
+    // (weergave) never shows demo — with no live data it shows "Geen wedstrijden".
+    const inPreview = this.state.tab === 'beheer';
+    let tCourts = [], pCourts = [];
+
+    // Live data from the tp-api proxy. Each board court is mapped to the same
+    // tile shape genCourts() produces; the accent colour still comes from the
+    // user's sport-colour settings.
+    let liveOn = false;
+    const board = this.state.board;
+    if (board && board.ok && Array.isArray(board.courts) && board.courts.length) {
+      liveOn = true;
+      const toTile = c => ({
+        key: c.sport + '-' + c.court,
+        base: c.base || 'BAAN',
+        num: c.num || '',
+        sportLabel: c.sport === 'padel' ? 'PADEL' : 'TENNIS',
+        accent: c.sport === 'padel' ? s.padelColor : s.tennisColor,
+        tournament: c.event || '',
+        t1: c.t1 || '', t2: c.t2 || '',
+        isPlaying: c.status === 'playing',
+        isNext: c.status === 'next',
+        isIdle: c.status === 'idle',
+        isMatch: c.status !== 'idle',
+        timeLabel: c.timeLabel || '',
+        gridSpan: 'auto',
+      });
+      const tiles = board.courts.map(toTile);
+      tCourts = s.showTennis ? tiles.filter(t => t.sportLabel === 'TENNIS') : [];
+      pCourts = s.showPadel ? tiles.filter(t => t.sportLabel === 'PADEL') : [];
+    } else if (inPreview) {
+      tCourts = s.showTennis ? genCourts(this.TENNIS_POOL, 'BAAN', 'TENNIS', s.tennisColor, s.tennisBanen) : [];
+      pCourts = s.showPadel ? genCourts(this.PADEL_POOL, 'PADEL', 'PADEL', s.padelColor, s.padelBanen) : [];
+    }
+
+    // Past results (UITSLAGEN). Live from the proxy, else demo samples. Each
+    // card keeps the match's category (event) in the `tournament` field.
+    const accentFor = sp => (sp === 'padel' ? s.padelColor : s.tennisColor);
+    let tResults = [], pResults = [];
+    if (s.showResults) {
+      if (liveOn) {
+        const rs = (board.results || []).map(r => ({
+          accent: accentFor(r.sport),
+          tournament: r.category || r.tournamentLabel || '',
+          winner: r.winner || '', loser: r.loser || '', score: r.score || '',
+          sport: r.sport,
+        }));
+        tResults = s.showTennis ? rs.filter(r => r.sport !== 'padel') : [];
+        pResults = s.showPadel ? rs.filter(r => r.sport === 'padel') : [];
+      } else if (inPreview) {
+        const mkDemo = (pool, sp) => pool.map(x => ({ accent: accentFor(sp), tournament: x[0], winner: x[1], loser: x[2], score: x[3], sport: sp }));
+        tResults = s.showTennis ? mkDemo(this.TENNIS_RESULTS, 'tennis') : [];
+        pResults = s.showPadel ? mkDemo(this.PADEL_RESULTS, 'padel') : [];
+      }
+    }
+
+    const COURT_BG = 'radial-gradient(120% 90% at 50% -10%, #18222f 0%, #0b0d11 55%)';
+    const SPONSOR_BG = 'radial-gradient(120% 100% at 50% 28%, #122a44 0%, #090b0f 62%)';
+    const RESULTS_BG = 'radial-gradient(120% 95% at 50% -5%, #15202c 0%, #0b0d11 58%)';
+
+    const frames = [];
+    // Pages follow how many courts are actually in use. If fewer than 4 are in
+    // play, collapse to a single page: keep all busy courts, fill the rest of the
+    // page with idle courts, and drop any leftover idle courts (no extra empty page).
+    const trimForPages = courts => {
+      const isUsed = c => c.isPlaying || c.isNext;
+      const pages = Math.max(1, Math.ceil(courts.filter(isUsed).length / 4));
+      const capacity = pages * 4;
+      if (courts.length <= capacity) return courts;
+      let slots = capacity - courts.filter(isUsed).length;
+      return courts.filter(c => (isUsed(c) ? true : slots-- > 0));
+    };
+    const addSport = (courts, label, accent) => {
+      const shown = trimForPages(courts);
+      const chunks = paginate(shown); const pages = chunks.length;
+      chunks.forEach((chunk, pi) => {
+        frames.push({
+          id: label + '-' + pi, isCourt: true, isSponsor: false,
+          sportLabel: label, accent, sub: sub(shown),
+          pageLabel: pages > 1 ? ('Pagina ' + (pi + 1) + '/' + pages) : '',
+          countLabel: shown.length + ' banen',
+          cols: chunk.length <= 1 ? '1fr' : 'repeat(2, 1fr)',
+          courts: chunk, bg: COURT_BG, dur: s.secCourt,
+        });
+      });
+    };
+    const addResults = (list, label, accent) => {
+      if (!list.length) return;
+      const per = 9;
+      const pages = Math.ceil(list.length / per);
+      for (let p = 0; p < pages; p++) {
+        const chunk = list.slice(p * per, (p + 1) * per);
+        frames.push({
+          id: 'res-' + label + '-' + p, isCourt: false, isResults: true, isSponsor: false,
+          sportLabel: label, accent, sub: '',
+          pageLabel: pages > 1 ? ('Pagina ' + (p + 1) + '/' + pages) : '',
+          countLabel: list.length + ' uitslagen',
+          cols: 'repeat(3, 1fr)',
+          results: chunk, courts: [], bg: RESULTS_BG, dur: s.secCourt,
+        });
+      }
+    };
+    addSport(tCourts, 'TENNIS', s.tennisColor);
+    addSport(pCourts, 'PADEL', s.padelColor);
+    addResults(tResults, 'TENNIS', s.tennisColor);
+    addResults(pResults, 'PADEL', s.padelColor);
+    if (s.showSponsor) frames.push({ id: 'sponsor', isCourt: false, isResults: false, isSponsor: true, sportLabel: '', accent: '#7da7d4', sub: '', pageLabel: '', countLabel: '', cols: '1fr', courts: [], results: [], bg: SPONSOR_BG, dur: s.secSponsor });
+    // No live data on the real display → an honest "Geen wedstrijden" slide
+    // instead of demo. (Preview keeps demo; overlays handle wifi/setup states.)
+    if (!liveOn && !inPreview) {
+      frames.unshift({ id: 'empty', isEmpty: true, isCourt: false, isResults: false, isSponsor: false, sportLabel: '', accent: '#7da7d4', sub: '', pageLabel: '', countLabel: '', cols: '1fr', courts: [], results: [], bg: COURT_BG, dur: s.secCourt });
+    }
+
+    const total = frames.reduce((a, f) => a + f.dur, 0);
+    let curIdx = -1;
+    if (total > 0) { let e = t % total; for (let i = 0; i < frames.length; i++) { if (e < frames[i].dur) { curIdx = i; break; } e -= frames[i].dur; } }
+    frames.forEach((f, i) => { f.op = i === curIdx ? 1 : 0; });
+    const dots = frames.map((f, i) => ({ op: i === curIdx ? 1 : 0.28 }));
+
+    const pretty = lbl => lbl.charAt(0) + lbl.slice(1).toLowerCase();
+    let currentLabel = 'Geen schermen actief';
+    if (curIdx >= 0) { const f = frames[curIdx]; currentLabel = f.isSponsor ? 'Sponsorslide' : (pretty(f.sportLabel) + (f.isResults ? ' · Uitslagen' : '') + (f.pageLabel ? (' · ' + f.pageLabel) : '')); }
+
+    const pagesLabel = n => { const p = this.pagesFor(n); return p <= 1 ? '1 pagina' : p + ' pagina’s'; };
+
+    const sw = on => ({ track: on ? '#15171c' : '#cdcabf', knob: on ? 'translateX(22px)' : 'translateX(0px)' });
+    const tn = sw(s.showTennis), pd = sw(s.showPadel), sp = sw(s.showSponsor), rs = sw(s.showResults);
+    const initials = (s.clubName.replace(/[^A-Za-z ]/g, ' ').split(/\s+/).filter(Boolean).map(w => w[0]).join('').slice(0, 2).toUpperCase()) || 'TV';
+    const isBeheer = this.state.tab === 'beheer';
+    const mk = (src, style) => (src ? React.createElement('img', { src, style }) : null);
+
+    // Connection / tournament config rows for the Instellingen screen.
+    const cfg = this.state.cfg;
+    const tsw = on => ({ track: on ? '#15171c' : '#cdcabf', knob: on ? 'translateX(22px)' : 'translateX(0px)' });
+    const tournamentRows = cfg.tournaments.map((tr, i) => {
+      const k = tsw(tr.enabled !== false);
+      return {
+        key: 'trow-' + i,
+        label: tr.label || '', code: tr.code || '',
+        enTrack: k.track, enKnob: k.knob,
+        onLabel: e => this.setTournamentField(i, 'label', e.target.value),
+        onCode: e => this.setTournamentField(i, 'code', e.target.value),
+        onToggle: () => this.setTournamentField(i, 'enabled', tr.enabled === false),
+        onRemove: () => this.removeTournament(i),
+      };
+    });
+    // Per-tournament live status (from the last /board poll).
+    const bStatuses = (this.state.board && Array.isArray(this.state.board.tournaments)) ? this.state.board.tournaments : [];
+    const connRows = bStatuses.map((st, i) => ({
+      key: 'conn-' + i,
+      label: st.label || st.code,
+      msg: st.ok ? (st.courts + ' ' + (st.courts === 1 ? 'baan' : 'banen') + (st.active ? (' · ' + st.active + ' bezig') : ' · vrij')) : (st.error || 'fout'),
+      dot: st.ok ? '#37d67a' : '#ff5a5a',
+      color: st.ok ? '#56524a' : '#c23b3b',
+    }));
+    // Cookie health — admin only. The display never sees this; here it tells the
+    // operator whether the captured cookie is still live and (once it dies) how
+    // long the previous one lasted, so they know to re-capture it.
+    const auth = cfg.auth || {};
+    const authState = auth.state || (cfg.cookieSet ? 'unknown' : 'none');
+    const hint = cfg.cookieHint ? (' (' + cfg.cookieHint + ')') : '';
+    const cookieStatusLabel =
+        authState === 'none' ? 'Niet ingesteld'
+      : authState === 'ok' ? ((auth.label || 'Actief') + hint)
+      : authState === 'expired' ? (auth.label || 'Verlopen — vernieuw de cookie')
+      : ('Ingesteld' + hint + ' · nog niet getest');
+    const cookieDotColor =
+        authState === 'ok' ? '#2e9d5b'
+      : authState === 'expired' ? '#c23b3b'
+      : authState === 'none' ? '#a8453b'
+      : '#b5840a';
+
+    // Login state — show the credential form, or "Ingelogd als <naam>" once stored.
+    const login = cfg.login || {};
+    const loggedIn = !!login.stored;
+    const loggedOut = !loggedIn;
+    const loginName = login.name || login.user || '';
+
+    // On-screen overlays for the fullscreen kiosk.
+    const st = this.state.status || {};
+    const bsrc = (this.state.board && this.state.board.source) || '';
+    const overlaySetup = !!st.setupMode;                         // on setup hotspot / no network
+    const overlayOffline = st.online === false && !overlaySetup; // joined wifi but no internet
+    const needsConfig = !overlaySetup && st.online !== false && (bsrc === 'no-cookie' || bsrc === 'no-tournaments');
+    const hotspotName = st.hotspotName || 'ToernooiTV-setup-…';
+    // Prefer the stable mDNS name (survives DHCP changes); show the IP as a hint.
+    const beheerUrl = 'toernooitv.local/beheer' + (st.ip ? ('  ·  ' + st.ip) : '');
+
+    return {
+      overlaySetup, overlayOffline, needsConfig, hotspotName, beheerUrl,
+      isDisplay: !isBeheer,
+      isBeheer,
+      fullScale: this.state.fullScale,
+      goWeergave: this.goWeergave,
+      goBeheer: this.goBeheer,
+      liveStatus: liveOn ? ((tCourts.length + pCourts.length) + ' banen live') : ((s.tennisBanen + s.padelBanen) + ' banen (demo)'),
+
+      // display props
+      clubName: s.clubName,
+      clubLogo: s.clubLogo,
+      clubHasLogo: !!s.clubLogo,
+      clubNoLogo: !s.clubLogo,
+      clubInitials: initials,
+      clubLogoPreview: mk(s.clubLogo, { height: '48px', maxWidth: '180px', objectFit: 'contain' }),
+      sponsorLogoPreview: mk(s.sponsorLogo, { height: '56px', maxWidth: '240px', objectFit: 'contain' }),
+      clockLabel, dateLabel,
+      frames, dots, currentLabel,
+      sponsorName: s.sponsorName,
+      sponsorTagline: s.sponsorTagline,
+      sponsorLogo: s.sponsorLogo,
+      sponsorNoLogo: !s.sponsorLogo,
+      sponsorHasLogo: !!s.sponsorLogo,
+
+      // scaling
+      bigScale: this.state.bigScale,
+      smallScale: this.state.smallScale,
+      setBigBox: this.setBigBox,
+      setSmallBox: this.setSmallBox,
+
+      // form values
+      tennisColor: s.tennisColor,
+      padelColor: s.padelColor,
+      secCourt: s.secCourt,
+      secSponsor: s.secSponsor,
+      tennisBanen: s.tennisBanen,
+      padelBanen: s.padelBanen,
+      tennisPagesLabel: pagesLabel(s.tennisBanen),
+      padelPagesLabel: pagesLabel(s.padelBanen),
+      tnTrack: tn.track, tnKnob: tn.knob,
+      pdTrack: pd.track, pdKnob: pd.knob,
+      spTrack: sp.track, spKnob: sp.knob,
+      rsTrack: rs.track, rsKnob: rs.knob,
+
+      // handlers
+      onClubName: e => this.update({ clubName: e.target.value }),
+      onSponsorName: e => this.update({ sponsorName: e.target.value }),
+      onSponsorTagline: e => this.update({ sponsorTagline: e.target.value }),
+      onClubLogo: e => this.readFile(e, 'clubLogo'),
+      onSponsorLogo: e => this.readFile(e, 'sponsorLogo'),
+      clearClubLogo: () => this.update({ clubLogo: '' }),
+      clearSponsorLogo: () => this.update({ sponsorLogo: '' }),
+      toggleTennis: () => this.update({ showTennis: !s.showTennis }),
+      togglePadel: () => this.update({ showPadel: !s.showPadel }),
+      toggleSponsor: () => this.update({ showSponsor: !s.showSponsor }),
+      toggleResults: () => this.update({ showResults: !s.showResults }),
+      onSecCourt: e => this.update({ secCourt: +e.target.value }),
+      onSecSponsor: e => this.update({ secSponsor: +e.target.value }),
+      onTennisColor: e => this.update({ tennisColor: e.target.value }),
+      onPadelColor: e => this.update({ padelColor: e.target.value }),
+      onTennisBanen: e => this.update({ tennisBanen: +e.target.value }),
+      onPadelBanen: e => this.update({ padelBanen: +e.target.value }),
+      resetSettings: () => this.update({ ...this.DEFAULTS }),
+
+      // connection / tournaments
+      cookieStatusLabel,
+      cookieDotColor,
+      cookieSetVal: cfg.cookieSet,
+      cookieInput: this.state.cookieInput,
+      saveMsg: this.state.saveMsg,
+      // login
+      loggedIn, loggedOut, loginName,
+      loginUser: this.state.loginUser,
+      loginPass: this.state.loginPass,
+      loginMsg: this.state.loginMsg,
+      onLoginUser: this.onLoginUser,
+      onLoginPass: this.onLoginPass,
+      doLogin: this.doLogin,
+      doLogout: this.doLogout,
+      hasTournaments: tournamentRows.length > 0,
+      tournamentRows,
+      // add-tournament dropdown: the account's tournaments minus the ones already added
+      availOptions: (() => {
+        const added = new Set((cfg.tournaments || []).map(t => t.code));
+        return (this.state.available || [])
+          .filter(t => !added.has(t.code))
+          .map(t => ({ code: t.code, label: t.name + (t.startDate ? ('  ·  ' + t.startDate.slice(0, 4)) : '') }));
+      })(),
+      availMsg: this.state.availMsg,
+      pickValue: this.state.pickValue,
+      onPickTournament: this.onPickTournament,
+      connRows,
+      hasConn: connRows.length > 0,
+      onCookieInput: this.onCookieInput,
+      addTournament: this.addTournament,
+      saveConfig: this.saveConfig,
+      clearCookie: this.clearCookie,
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,15 @@
+# Secrets & runtime state — NEVER commit (config.json holds the cookie + password)
+config.json
+config.json.tmp
+*.tmp
+
+# Chromium kiosk profile
+.kiosk-profile/
+
+# Python
+__pycache__/
+*.pyc
+
+# Debug scratch
+/tmp/
+debug-login.py

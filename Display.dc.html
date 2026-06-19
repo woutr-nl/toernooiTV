@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./vendor/react.production.min.js"></script>
+<script src="./vendor/react-dom.production.min.js"></script>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="./vendor/fonts.css" rel="stylesheet">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  @keyframes livepulse{0%,100%{opacity:1;}50%{opacity:.28;}}
+</style>
+</helmet>
+
+<div style="position:relative; width:1920px; height:1080px; background:#0b0d11; overflow:hidden; font-family:Archivo, sans-serif;">
+
+  <!-- ROTATING FRAMES -->
+  <sc-for list="{{ frames }}" as="f" hint-placeholder-count="2">
+    <div style="position:absolute; inset:0; padding-top:120px; opacity:{{ f.op }}; transition:opacity .7s ease; background:{{ f.bg }}; display:flex; flex-direction:column; --accent:{{ f.accent }};">
+
+      <sc-if value="{{ f.isCourt }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex; align-items:flex-end; justify-content:space-between; padding:26px 56px 14px;">
+          <div style="display:flex; align-items:baseline; gap:22px;">
+            <span style="font:900 58px Archivo; letter-spacing:-1px; color:var(--accent);">{{ f.sportLabel }}</span>
+            <span style="font:600 24px Archivo; color:#8b93a3;">{{ f.sub }}</span>
+          </div>
+          <div style="display:flex; align-items:baseline; gap:20px;">
+            <span style="font:700 22px 'JetBrains Mono'; color:var(--accent);">{{ f.pageLabel }}</span>
+            <span style="font:700 22px 'JetBrains Mono'; color:#7d8696;">{{ f.countLabel }}</span>
+          </div>
+        </div>
+        <div style="flex:1; display:grid; grid-template-columns:{{ f.cols }}; grid-auto-rows:1fr; gap:28px; padding:8px 56px 60px;">
+          <sc-for list="{{ f.courts }}" as="court" hint-placeholder-count="4">
+            <div style="position:relative; background:#14171d; border:1px solid rgba(255,255,255,.08); border-radius:20px; padding:0 44px; display:flex; align-items:stretch; gap:40px; overflow:hidden; grid-column:{{ court.gridSpan }}; --accent:{{ court.accent }};">
+              <div style="position:absolute; top:0; left:0; bottom:0; width:7px; background:var(--accent);"></div>
+              <div style="display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center; padding:30px 0; min-width:188px;">
+                <span style="font:700 20px Archivo; letter-spacing:3px; color:#7d8696;">{{ court.base }}</span>
+                <span style="font:900 112px Archivo; line-height:.78; color:#fff;">{{ court.num }}</span>
+              </div>
+              <div style="width:1px; background:rgba(255,255,255,.08); margin:38px 0;"></div>
+              <div style="flex:1; display:flex; flex-direction:column; justify-content:center; padding:30px 0; gap:16px; min-width:0;">
+                <sc-if value="{{ court.isMatch }}" hint-placeholder-val="{{ true }}">
+                  <span style="font:600 15px 'JetBrains Mono'; letter-spacing:1px; color:#6b7384;">{{ court.tournament }}</span>
+                  <span style="font:700 40px Archivo; color:#f2f4f8; line-height:1.02;">{{ court.t1 }}</span>
+                  <div style="display:flex; align-items:center; gap:16px;">
+                    <span style="font:800 15px Archivo; letter-spacing:3px; color:#5b6473;">VS</span>
+                    <span style="flex:1; height:1px; background:rgba(255,255,255,.1);"></span>
+                  </div>
+                  <span style="font:700 40px Archivo; color:#f2f4f8; line-height:1.02;">{{ court.t2 }}</span>
+                  <div style="display:flex; align-items:center; min-height:30px; margin-top:6px;">
+                    <div style="display:flex; align-items:center; gap:12px;">
+                      <span style="width:13px; height:13px; border-radius:50%; background:var(--accent); animation:livepulse 1.4s ease-in-out infinite;"></span>
+                      <span style="font:800 20px Archivo; letter-spacing:2px; color:var(--accent);">OP DE BAAN</span>
+                    </div>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ court.isIdle }}">
+                  <div style="display:flex; align-items:center; gap:14px;">
+                    <span style="width:13px; height:13px; border-radius:50%; background:#3a3f48;"></span>
+                    <span style="font:700 32px Archivo; color:#5b6473;">Geen wedstrijd op de baan</span>
+                  </div>
+                </sc-if>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ f.isResults }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex; align-items:flex-end; justify-content:space-between; padding:26px 56px 14px;">
+          <div style="display:flex; align-items:baseline; gap:22px;">
+            <span style="font:900 58px Archivo; letter-spacing:-1px; color:var(--accent);">{{ f.sportLabel }}</span>
+            <span style="font:700 30px Archivo; color:#f2f4f8; letter-spacing:.5px;">UITSLAGEN</span>
+          </div>
+          <div style="display:flex; align-items:baseline; gap:20px;">
+            <span style="font:700 22px 'JetBrains Mono'; color:var(--accent);">{{ f.pageLabel }}</span>
+            <span style="font:700 22px 'JetBrains Mono'; color:#7d8696;">{{ f.countLabel }}</span>
+          </div>
+        </div>
+        <div style="flex:1; display:grid; grid-template-columns:{{ f.cols }}; grid-auto-rows:min-content; gap:18px 28px; padding:8px 56px 56px; align-content:start;">
+          <sc-for list="{{ f.results }}" as="r" hint-placeholder-count="9">
+            <div style="position:relative; background:#14171d; border:1px solid rgba(255,255,255,.07); border-radius:14px; padding:16px 26px 16px 30px; overflow:hidden; --accent:{{ r.accent }};">
+              <div style="position:absolute; top:0; left:0; bottom:0; width:6px; background:var(--accent);"></div>
+              <div style="display:flex; align-items:center; justify-content:space-between; gap:18px; margin-bottom:11px;">
+                <span style="font:600 14px 'JetBrains Mono'; letter-spacing:1px; color:#6b7384; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ r.tournament }}</span>
+                <span style="font:700 28px 'JetBrains Mono'; color:var(--accent); letter-spacing:1px; flex:none;">{{ r.score }}</span>
+              </div>
+              <div style="display:flex; align-items:center; gap:13px;">
+                <span style="width:11px; height:11px; border-radius:50%; background:var(--accent); flex:none;"></span>
+                <span style="font:800 30px Archivo; color:#fff; line-height:1.05; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ r.winner }}</span>
+              </div>
+              <div style="display:flex; align-items:center; gap:13px; margin-top:7px;">
+                <span style="width:11px; height:11px; flex:none;"></span>
+                <span style="font:600 27px Archivo; color:#7d8696; line-height:1.05; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ r.loser }}</span>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ f.isSponsor }}" hint-placeholder-val="{{ true }}">
+        <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center;">
+          <div style="font:700 18px 'JetBrains Mono'; letter-spacing:6px; color:#7da7d4; margin-bottom:42px;">MET DANK AAN ONZE HOOFDSPONSOR</div>
+          {{ sponsorLogoImg }}
+          <sc-if value="{{ sponsorNoLogo }}" hint-placeholder-val="{{ true }}">
+            <div style="width:780px; height:280px; border-radius:22px; border:1px dashed rgba(255,255,255,.22); background:repeating-linear-gradient(45deg, rgba(255,255,255,.05) 0 20px, rgba(255,255,255,.015) 20px 40px); display:flex; align-items:center; justify-content:center; padding:0 40px;">
+              <span style="font:800 44px Archivo; color:rgba(255,255,255,.7); letter-spacing:.5px; text-align:center;">{{ sponsorName }}</span>
+            </div>
+          </sc-if>
+          <div style="font:700 32px Archivo; color:#fff; margin-top:46px; text-align:center;">{{ sponsorTagline }}</div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ f.isEmpty }}" hint-placeholder-val="{{ true }}">
+        <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:24px;">
+          <span style="width:20px; height:20px; border-radius:50%; background:#3a3f48;"></span>
+          <div style="font:900 76px Archivo; color:#5b6473; letter-spacing:-1px;">Geen wedstrijden</div>
+          <div style="font:600 28px Archivo; color:#4a505b;">Zodra er wedstrijden op de baan staan, verschijnen ze hier.</div>
+        </div>
+      </sc-if>
+
+    </div>
+  </sc-for>
+
+  <!-- PERSISTENT TOP BAR -->
+  <div style="position:absolute; top:0; left:0; right:0; height:120px; z-index:5; display:flex; align-items:center; justify-content:space-between; padding:0 56px; background:#0b0d11; border-bottom:1px solid rgba(255,255,255,.07);">
+    <div style="display:flex; align-items:center; gap:16px;">
+      {{ clubLogoImg }}
+      <sc-if value="{{ clubNoLogo }}" hint-placeholder-val="{{ true }}">
+        <div style="width:48px; height:48px; border-radius:12px; background:#fff; display:flex; align-items:center; justify-content:center; font:900 22px Archivo; color:#0b0d11;">{{ clubInitials }}</div>
+      </sc-if>
+      <div style="display:flex; flex-direction:column; line-height:1.1;">
+        <span style="font:800 26px Archivo; color:#fff; letter-spacing:.3px;">{{ clubName }}</span>
+        <span style="font:700 13px 'JetBrains Mono'; letter-spacing:5px; color:#7d8696;">TOERNOOI TV</span>
+      </div>
+    </div>
+    <div style="display:flex; align-items:center; gap:22px;">
+      <span style="display:inline-flex; align-items:center; gap:8px; font:800 16px Archivo; letter-spacing:2px; color:#ff3b3b;">
+        <span style="width:11px; height:11px; border-radius:50%; background:#ff3b3b; animation:livepulse 1.4s ease-in-out infinite;"></span>LIVE
+      </span>
+      <div style="display:flex; flex-direction:column; align-items:flex-end; line-height:1;">
+        <span style="font:700 40px 'JetBrains Mono'; color:#fff; letter-spacing:1px;">{{ clockLabel }}</span>
+        <span style="font:600 14px Archivo; color:#7d8696; text-transform:capitalize; margin-top:4px;">{{ dateLabel }}</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- PAGER -->
+  <div style="position:absolute; bottom:22px; left:50%; transform:translateX(-50%); display:flex; gap:10px; z-index:6;">
+    <sc-for list="{{ dots }}" as="d" hint-placeholder-count="3">
+      <span style="width:40px; height:6px; border-radius:3px; background:#fff; opacity:{{ d.op }}; transition:opacity .5s;"></span>
+    </sc-for>
+  </div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1920,&quot;height&quot;:1080}}">
+class Component extends DCLogic {
+  renderVals() {
+    const p = this.props;
+    const mk = (src, style) => (src ? React.createElement('img', { src, style }) : null);
+    return {
+      ...p,
+      clubLogoImg: mk(p.clubLogo, { height: '54px', maxWidth: '200px', objectFit: 'contain', display: 'block' }),
+      sponsorLogoImg: mk(p.sponsorLogo, { maxWidth: '840px', maxHeight: '300px', objectFit: 'contain' }),
+    };
+  }
+}
+</script>
+</body>
+</html>

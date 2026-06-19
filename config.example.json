@@ -1,0 +1,7 @@
+{
+  "cookie": "",
+  "tournaments": [
+    { "code": "<tournament-uuid>", "label": "Voorbeeld", "enabled": true }
+  ],
+  "login": { "user": "", "pass": "", "name": "" }
+}

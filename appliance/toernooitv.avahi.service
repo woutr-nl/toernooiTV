@@ -1,0 +1,13 @@
+<?xml version="1.0" standalone='no'?>
+<!DOCTYPE service-group SYSTEM "avahi-service.dtd">
+<!-- Advertises the Toernooi TV web UI over mDNS/Bonjour so the appliance is
+     reachable at http://toernooitv.local/ without knowing its DHCP IP.
+     Installed to /etc/avahi/services/ by install-kiosk.sh. -->
+<service-group>
+  <name replace-wildcards="yes">Toernooi TV op %h</name>
+  <service>
+    <type>_http._tcp</type>
+    <port>80</port>
+    <txt-record>path=/beheer</txt-record>
+  </service>
+</service-group>
