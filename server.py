@@ -522,11 +522,16 @@ def _board_for(code, label):
         winner = " / ".join(home if home_won else away)
         loser = " / ".join(away if home_won else home)
         cat = event_name.get(m.get("eventID"), "")  # the category (event) of the match
+        pts = m.get("points")
+        # A decided match with both teams but no points was won without a played
+        # score — a walkover (no-show / withdrawal / reglementair). Flag it so the
+        # display shows a "w.o." badge instead of a blank score.
         results.append({
             "sport": _classify(cat),
             "category": cat, "tournamentLabel": label,
             "winner": winner, "loser": loser,
-            "score": _fmt_score(m.get("points"), home_won),
+            "score": _fmt_score(pts, home_won),
+            "walkover": not pts,
             "_t": _rtime(m), "_id": m.get("id", 0),
         })
     results.sort(key=lambda r: (r["_t"], r["_id"]), reverse=True)  # most recent first

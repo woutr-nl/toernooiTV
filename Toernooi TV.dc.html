@@ -755,16 +755,20 @@ class Component extends DCLogic {
     let tResults = [], pResults = [];
     if (s.showResults) {
       if (liveOn) {
-        const rs = (board.results || []).map(r => ({
-          accent: accentFor(r.sport),
-          tournament: r.category || r.tournamentLabel || '',
-          winner: r.winner || '', loser: r.loser || '', score: r.score || '',
-          sport: r.sport,
-        }));
+        const rs = (board.results || []).map(r => {
+          const wo = !!r.walkover || !(r.score || '').trim();  // no score ⇒ walkover
+          return {
+            accent: accentFor(r.sport),
+            tournament: r.category || r.tournamentLabel || '',
+            winner: r.winner || '', loser: r.loser || '',
+            score: r.score || '', isWO: wo, isScore: !wo,
+            sport: r.sport,
+          };
+        });
         tResults = s.showTennis ? rs.filter(r => r.sport !== 'padel') : [];
         pResults = s.showPadel ? rs.filter(r => r.sport === 'padel') : [];
       } else if (inPreview) {
-        const mkDemo = (pool, sp) => pool.map(x => ({ accent: accentFor(sp), tournament: x[0], winner: x[1], loser: x[2], score: x[3], sport: sp }));
+        const mkDemo = (pool, sp) => pool.map(x => ({ accent: accentFor(sp), tournament: x[0], winner: x[1], loser: x[2], score: x[3], isScore: true, isWO: false, sport: sp }));
         tResults = s.showTennis ? mkDemo(this.TENNIS_RESULTS, 'tennis') : [];
         pResults = s.showPadel ? mkDemo(this.PADEL_RESULTS, 'padel') : [];
       }

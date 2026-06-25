@@ -88,7 +88,12 @@
               <div style="position:absolute; top:0; left:0; bottom:0; width:6px; background:var(--accent);"></div>
               <div style="display:flex; align-items:center; justify-content:space-between; gap:18px; margin-bottom:11px;">
                 <span style="font:600 14px 'JetBrains Mono'; letter-spacing:1px; color:#6b7384; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ r.tournament }}</span>
-                <span style="font:700 28px 'JetBrains Mono'; color:var(--accent); letter-spacing:1px; flex:none;">{{ r.score }}</span>
+                <sc-if value="{{ r.isScore }}" hint-placeholder-val="{{ true }}">
+                  <span style="font:700 28px 'JetBrains Mono'; color:var(--accent); letter-spacing:1px; flex:none;">{{ r.score }}</span>
+                </sc-if>
+                <sc-if value="{{ r.isWO }}">
+                  <span style="font:900 26px Archivo; letter-spacing:1.5px; color:#0b0d11; background:var(--accent); padding:7px 17px; border-radius:10px; flex:none; white-space:nowrap;">WALK-OVER</span>
+                </sc-if>
               </div>
               <div style="display:flex; align-items:center; gap:13px;">
                 <span style="width:11px; height:11px; border-radius:50%; background:var(--accent); flex:none;"></span>
