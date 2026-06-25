@@ -47,7 +47,12 @@ systemctl disable --now getty@tty1.service 2>/dev/null || true
 systemctl enable toernooitv-kiosk.service
 # comitup brings up the setup hotspot when no known wifi is found
 systemctl enable comitup.service 2>/dev/null || true
-systemctl enable comitup-web.service 2>/dev/null || true
+# Mask comitup's own web portal: it binds :80 too, so it fought our server for
+# the port and crash-looped (no portal page). Our server serves the wifi setup
+# page on :80 instead (captive-redirect + the Wifi card), driving comitup over
+# D-Bus. Masking stops the conflict for good.
+systemctl disable comitup-web.service 2>/dev/null || true
+systemctl mask comitup-web.service 2>/dev/null || true
 systemctl enable --now avahi-daemon.service 2>/dev/null || true
 
 echo

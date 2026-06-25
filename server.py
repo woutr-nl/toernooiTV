@@ -45,6 +45,7 @@ PORT = int(os.environ.get("PORT", "8770"))
 HOST = os.environ.get("HOST", "0.0.0.0")  # bind all interfaces so the Pi's LAN IP works
 API_BASE = "https://tp-api.tournamentsoftware.com/api/v1/tournament/"
 HOTSPOT_PREFIX = os.environ.get("TP_HOTSPOT_PREFIX", "ToernooiTV-setup")
+HOTSPOT_IP = os.environ.get("TP_HOTSPOT_IP", "10.41.0.1")  # comitup AP gateway IP
 PADEL_KEYWORDS = [
     w.strip().lower()
     for w in os.environ.get("TP_PADEL_KEYWORDS", "padel").split(",")
@@ -619,23 +620,109 @@ def _lan_ip():
         s.close()
 
 
+# ---- wifi via comitup's D-Bus API ------------------------------------------
+# comitup runs as root and owns the wifi state machine (AP ⇄ client). Its D-Bus
+# policy allows context="default", so this server (running as a normal user) may
+# call it directly — no sudo/polkit. We drive it for BOTH the on-device setup
+# portal (served on :80 while the hotspot is up) and the /beheer wifi card, so a
+# single branded wifi picker replaces comitup-web. Methods: state()->('MODE',
+# 'name'), access_points()->[{ssid,strength,security}], connect(ssid,pw),
+# delete_connection(), get_info()->{apname,…}.
+_COMITUP_BUS = "com.github.davesteele.comitup"
+_COMITUP_OBJ = "/com/github/davesteele/comitup"
+_wifi_lock = threading.Lock()
+_scan_cache = {"ts": 0.0, "nets": None}
+
+
+def _comitup():
+    import dbus  # lazy import: absent on dev machines, present on the appliance
+    bus = dbus.SystemBus()
+    return dbus.Interface(bus.get_object(_COMITUP_BUS, _COMITUP_OBJ), _COMITUP_BUS)
+
+
+def comitup_state():
+    """(mode, name) e.g. ('CONNECTED','Vinknet5') or ('HOTSPOT','…'); ('','') if comitup is absent."""
+    try:
+        m, s = _comitup().state()
+        return str(m), str(s)
+    except Exception:  # noqa: BLE001 — comitup/dbus missing ⇒ caller falls back to nmcli
+        return "", ""
+
+
+def comitup_info():
+    try:
+        return {str(k): str(v) for k, v in _comitup().get_info().items()}
+    except Exception:  # noqa: BLE001
+        return {}
+
+
+def comitup_scan(max_age=10):
+    """Visible networks: [{ssid, strength(0-100), secured}], strongest first, deduped. Cached briefly."""
+    now = time.time()
+    with _wifi_lock:
+        if _scan_cache["nets"] is not None and now - _scan_cache["ts"] < max_age:
+            return _scan_cache["nets"]
+    nets = {}
+    try:
+        for ap in _comitup().access_points():
+            ssid = str(ap.get("ssid", "")).strip()
+            if not ssid:
+                continue
+            try:
+                strength = int(float(ap.get("strength", 0)))
+            except (TypeError, ValueError):
+                strength = 0
+            sec = str(ap.get("security", "")).strip().lower()
+            secured = sec not in ("", "none", "unencrypted", "open")
+            prev = nets.get(ssid)
+            if prev is None or strength > prev["strength"]:
+                nets[ssid] = {"ssid": ssid, "strength": strength, "secured": secured}
+    except Exception:  # noqa: BLE001
+        pass
+    out = sorted(nets.values(), key=lambda n: -n["strength"])
+    with _wifi_lock:
+        _scan_cache.update(ts=now, nets=out)
+    return out
+
+
+def comitup_connect(ssid, password):
+    """Ask comitup to join `ssid`. Async on comitup's side (it tears down the AP and
+    joins, so an attached phone briefly drops). Raises on a D-Bus error."""
+    _comitup().connect(str(ssid), str(password or ""))
+
+
+def comitup_forget():
+    """Drop the current wifi connection — comitup re-raises its setup hotspot."""
+    _comitup().delete_connection()
+
+
 def device_status():
     """Online / wifi / setup-hotspot state for the on-screen overlay (cached)."""
     now = time.time()
     if _status_cache["data"] and now - _status_cache["ts"] < 8:
         return _status_cache["data"]
-    ssid = _wifi_ssid()
     online = _is_online()
-    on_hotspot = ssid.startswith(HOTSPOT_PREFIX)
     ip = _lan_ip()
+    mode, cname = comitup_state()  # authoritative when comitup is present
+    if mode:
+        on_hotspot = mode == "HOTSPOT"
+        ssid = "" if on_hotspot else cname
+        setup = on_hotspot or (mode == "CONNECTING" and not online)
+        hotspot_name = comitup_info().get("apname", "") if on_hotspot else ""
+    else:  # comitup absent (e.g. dev box) — fall back to nmcli read-only probe
+        ssid = _wifi_ssid()
+        on_hotspot = ssid.startswith(HOTSPOT_PREFIX)
+        setup = on_hotspot or (not ssid and not online)
+        hotspot_name = ssid if on_hotspot else ""
     data = {
         "online": online,
         "ssid": ssid,
         "ip": ip,
+        "mode": mode,
         # show the wifi-setup overlay when sitting on our own setup AP, or when
         # there's no wifi joined and no internet at all
-        "setupMode": on_hotspot or (not ssid and not online),
-        "hotspotName": ssid if on_hotspot else (HOTSPOT_PREFIX + "-…"),
+        "setupMode": setup,
+        "hotspotName": hotspot_name or (HOTSPOT_PREFIX + "-…"),
     }
     _status_cache.update(ts=now, data=data)
     return data
@@ -664,11 +751,33 @@ class Handler(SimpleHTTPRequestHandler):
         self.send_header("Content-Length", "0")
         self.end_headers()
 
+    def end_headers(self):
+        # Never let a browser cache the app shell — on a kiosk/appliance there's
+        # no easy cache-bust, so a stale .dc.html/JS would hide UI changes after
+        # an update. (JSON endpoints already set their own Cache-Control.)
+        p = self.path.split("?")[0].lower()
+        if p.endswith((".dc.html", ".js", ".css")) and "cache-control" not in self._headers_buffer_keys():
+            self.send_header("Cache-Control", "no-store")
+        super().end_headers()
+
+    def _headers_buffer_keys(self):
+        # names of headers already queued in this response (lowercased)
+        keys = []
+        for raw in getattr(self, "_headers_buffer", []) or []:
+            try:
+                line = raw.decode("latin-1")
+            except Exception:  # noqa: BLE001
+                continue
+            if ":" in line:
+                keys.append(line.split(":", 1)[0].strip().lower())
+        return keys
+
     def do_GET(self):
         path = self.path.split("?")[0]
         # tidy routes: serve the app in-place (URL stays clean, no filename shown).
         # bare URL = fullscreen display, /beheer = settings (client reads the path).
-        if path in ("/", "/weergave", "/display", "/beheer", "/instellingen", "/settings"):
+        if path in ("/", "/weergave", "/display", "/beheer", "/instellingen",
+                    "/settings", "/setup", "/wifi-setup"):
             self.path = "/Toernooi%20TV.dc.html"
             return super().do_GET()
         if path == "/board":
@@ -688,6 +797,21 @@ class Handler(SimpleHTTPRequestHandler):
             except Exception as e:  # noqa: BLE001
                 self._json({"online": True, "setupMode": False, "error": str(e)})
             return
+        if path == "/wifi":
+            try:
+                st = device_status()
+                self._json({
+                    "ok": True,
+                    "mode": st.get("mode", ""),
+                    "ssid": st.get("ssid", ""),
+                    "ip": st.get("ip", ""),
+                    "online": st.get("online", False),
+                    "setupMode": st.get("setupMode", False),
+                    "networks": comitup_scan(),
+                })
+            except Exception as e:  # noqa: BLE001
+                self._json({"ok": False, "error": str(e), "networks": []})
+            return
         if path == "/health":
             self._json({"ok": True, "cookieSet": bool(CONFIG.get("cookie")),
                         "tournaments": len(CONFIG.get("tournaments", []))})
@@ -698,17 +822,62 @@ class Handler(SimpleHTTPRequestHandler):
             except Exception as e:  # noqa: BLE001
                 self._json({"ok": False, "error": str(e), "tournaments": []})
             return
+        # On the setup hotspot, push stray navigations / captive-portal probes to
+        # our wifi page so the phone shows a working portal (replaces comitup-web).
+        if self._maybe_captive():
+            return
         super().do_GET()
+
+    def _maybe_captive(self):
+        """While the setup hotspot is up, 302 unknown paths (OS captive-portal
+        probes, random navigations) to our wifi setup page. Real local files
+        (the page, vendored React/fonts) still serve normally so the portal
+        actually renders."""
+        try:
+            if device_status().get("mode") != "HOTSPOT":
+                return False
+        except Exception:  # noqa: BLE001
+            return False
+        if os.path.isfile(self.translate_path(self.path)):
+            return False
+        self._redirect("http://%s/setup" % HOTSPOT_IP)
+        return True
 
     def do_POST(self):
         path = self.path.split("?")[0]
-        if path not in ("/config", "/login"):
+        if path not in ("/config", "/login", "/wifi"):
             self._json({"ok": False, "error": "unknown endpoint"}, 404)
             return
         try:
             body = self._read_json()
         except Exception as e:  # noqa: BLE001
             self._json({"ok": False, "error": "bad JSON: %s" % e}, 400)
+            return
+
+        if path == "/wifi":
+            # Set wifi by hand: forget the current network, or join a chosen one.
+            # comitup does the work as root; the join is async and tears down the
+            # setup AP, so a phone attached to it will drop mid-connect (expected).
+            if body.get("forget"):
+                try:
+                    comitup_forget()
+                except Exception as e:  # noqa: BLE001
+                    self._json({"ok": False, "error": "vergeten mislukt: %s" % e}, 500)
+                    return
+                _status_cache["data"] = None
+                self._json({"ok": True, "message": "Wifi vergeten — het instelnetwerk komt weer op."})
+                return
+            ssid = str(body.get("ssid", "")).strip()
+            if not ssid:
+                self._json({"ok": False, "error": "Geen netwerk gekozen."}, 400)
+                return
+            try:
+                comitup_connect(ssid, body.get("password", ""))
+            except Exception as e:  # noqa: BLE001
+                self._json({"ok": False, "error": "verbinden mislukt: %s" % e}, 500)
+                return
+            _status_cache["data"] = None  # force a fresh status on the next poll
+            self._json({"ok": True, "message": "Bezig met verbinden met ‘%s’…" % ssid})
             return
 
         if path == "/login":

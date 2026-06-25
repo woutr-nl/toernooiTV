@@ -90,6 +90,56 @@
         <!-- FORM -->
         <div style="display:flex; flex-direction:column; gap:22px;">
 
+          <!-- WIFI & NETWERK -->
+          <div style="background:#fff; border:1px solid rgba(0,0,0,.08); border-radius:16px; padding:28px 30px;">
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:6px;">
+              <div style="display:flex; align-items:center; gap:10px;">
+                <span style="font:800 20px Archivo; color:#1b1a17;">Wifi &amp; netwerk</span>
+                <span style="display:flex; align-items:center; gap:7px; font:600 12px 'JetBrains Mono'; color:{{ wifiDotColor }};"><span style="width:8px; height:8px; border-radius:50%; background:{{ wifiDotColor }};"></span>{{ wifiStatusLabel }}</span>
+              </div>
+              <button onClick="{{ wifiScan }}" style="border:1px solid rgba(0,0,0,.14); background:#fff; cursor:pointer; padding:8px 14px; border-radius:9px; font:700 13px Archivo; color:#56524a;">Vernieuwen</button>
+            </div>
+            <div style="font:500 14px Archivo; color:#8a8578; margin-bottom:18px;">{{ wifiHint }}</div>
+
+            <sc-if value="{{ hasNets }}">
+              <div style="display:flex; flex-direction:column; gap:8px;">
+                <sc-for list="{{ wifiNets }}" as="nw" hint-placeholder-count="3">
+                  <div>
+                    <button onClick="{{ nw.onPick }}" style="width:100%; display:flex; align-items:center; justify-content:space-between; gap:10px; padding:12px 15px; border:1px solid {{ nw.border }}; background:{{ nw.bg }}; cursor:pointer; border-radius:{{ nw.radius }}; text-align:left;">
+                      <span style="display:flex; align-items:center; gap:10px; min-width:0;">
+                        <span style="font:700 15px Archivo; color:#1b1a17; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ nw.ssid }}</span>
+                        <sc-if value="{{ nw.secured }}"><span style="font:600 12px Archivo; color:#8a8578;">🔒</span></sc-if>
+                        <sc-if value="{{ nw.current }}"><span style="font:700 10px 'JetBrains Mono'; letter-spacing:1px; color:#2e9d5b;">VERBONDEN</span></sc-if>
+                      </span>
+                      <span style="font:700 13px 'JetBrains Mono'; color:#9aa3b2; white-space:nowrap;">{{ nw.bars }}</span>
+                    </button>
+                    <sc-if value="{{ nw.selected }}">
+                      <div style="display:flex; flex-direction:column; gap:10px; padding:14px 15px; border:1px solid #0b0d11; border-top:none; border-radius:0 0 10px 10px; background:#faf9f6;">
+                        <sc-if value="{{ nw.secured }}">
+                          <input type="password" value="{{ wifiPass }}" onChange="{{ onWifiPass }}" placeholder="Wifi-wachtwoord" style="width:100%; padding:13px 15px; border:1px solid rgba(0,0,0,.14); border-radius:10px; font:600 14px Archivo; color:#1b1a17; background:#fff; outline:none;">
+                        </sc-if>
+                        <div style="display:flex; align-items:center; gap:14px;">
+                          <button onClick="{{ wifiConnect }}" style="border:none; background:#0b0d11; cursor:pointer; padding:12px 22px; border-radius:10px; font:700 14px Archivo; color:#fff; white-space:nowrap;">Verbinden</button>
+                          <span style="font:600 13px Archivo; color:#8a8578;">{{ wifiMsg }}</span>
+                        </div>
+                      </div>
+                    </sc-if>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-if>
+            <sc-if value="{{ noNets }}">
+              <div style="font:600 14px Archivo; color:#8a8578;">Geen netwerken gevonden — klik op Vernieuwen.</div>
+            </sc-if>
+
+            <sc-if value="{{ wifiConnected }}">
+              <div style="margin-top:16px; padding-top:14px; border-top:1px solid rgba(0,0,0,.06); display:flex; align-items:center; justify-content:space-between; gap:12px;">
+                <span style="font:600 13px Archivo; color:#8a8578;">{{ wifiIpLabel }}</span>
+                <button onClick="{{ wifiForget }}" style="border:1px solid rgba(0,0,0,.14); background:#fff; cursor:pointer; padding:8px 14px; border-radius:9px; font:700 13px Archivo; color:#a8453b; white-space:nowrap;">Wifi vergeten</button>
+              </div>
+            </sc-if>
+          </div>
+
           <!-- VERBINDING & TOERNOOIEN -->
           <div style="background:#fff; border:1px solid rgba(0,0,0,.08); border-radius:16px; padding:28px 30px;">
             <div style="display:flex; align-items:center; gap:10px; margin-bottom:6px;">
@@ -402,6 +452,8 @@ class Component extends DCLogic {
     cookieInput: '', saveMsg: '',
     loginUser: '', loginPass: '', loginMsg: '',
     available: [], availMsg: '', pickValue: '',
+    // wifi / network (managed server-side via comitup)
+    wifi: null, wifiSel: '', wifiPass: '', wifiMsg: '',
   };
 
   BOARD_POLL_MS = 15000; // poll the tp-api proxy on a fixed interval (independent of tab focus)
@@ -417,6 +469,8 @@ class Component extends DCLogic {
     this._bv = setInterval(this._fetchBoard, this.BOARD_POLL_MS);
     this._fetchStatus();
     this._sv = setInterval(this._fetchStatus, 12000);
+    this._fetchWifi();
+    this._wv = setInterval(this._fetchWifi, 15000);
     this._missed = 0;
     this._hb = setInterval(this._heartbeat, 10000);
     this._dr = setInterval(this._maybeDailyReload, 60000);
@@ -427,13 +481,39 @@ class Component extends DCLogic {
     window.addEventListener('resize', this._onResize);
     this._measure();
   }
-  componentWillUnmount() { clearInterval(this._iv); clearInterval(this._bv); clearInterval(this._sv); clearInterval(this._hb); clearInterval(this._dr); window.removeEventListener('hashchange', this._onHash); window.removeEventListener('resize', this._onResize); }
+  componentWillUnmount() { clearInterval(this._iv); clearInterval(this._bv); clearInterval(this._sv); clearInterval(this._wv); clearInterval(this._hb); clearInterval(this._dr); window.removeEventListener('hashchange', this._onHash); window.removeEventListener('resize', this._onResize); }
 
   // Device/network status for the on-screen overlay (online? on the setup hotspot?).
   _fetchStatus = () => {
     fetch('/status', { cache: 'no-store' })
       .then(r => (r.ok ? r.json() : null))
       .then(st => { if (st) this.setState({ status: st }); })
+      .catch(() => {});
+  };
+
+  // Wifi: current connection + visible networks (server reads them via comitup).
+  _fetchWifi = () => {
+    fetch('/wifi', { cache: 'no-store' })
+      .then(r => (r.ok ? r.json() : null))
+      .then(w => { if (w) this.setState({ wifi: w }); })
+      .catch(() => {});
+  };
+  wifiScan = () => { this.setState({ wifiMsg: 'Zoeken…' }); this._fetchWifi(); setTimeout(() => this.setState(s => ({ wifiMsg: s.wifiMsg === 'Zoeken…' ? '' : s.wifiMsg })), 1200); };
+  onPickNet = ssid => this.setState(s => ({ wifiSel: s.wifiSel === ssid ? '' : ssid, wifiPass: '', wifiMsg: '' }));
+  onWifiPass = e => this.setState({ wifiPass: e.target.value });
+  wifiConnect = () => {
+    const ssid = this.state.wifiSel;
+    if (!ssid) { this.setState({ wifiMsg: 'Kies eerst een netwerk' }); return; }
+    this.setState({ wifiMsg: 'Verbinden met ' + ssid + '…' });
+    fetch('/wifi', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ssid, password: this.state.wifiPass }) })
+      .then(r => r.json())
+      .then(w => { this.setState({ wifiMsg: (w && (w.message || w.error)) || 'Onbekende fout', wifiPass: '' }); setTimeout(this._fetchWifi, 5000); })
+      .catch(() => this.setState({ wifiMsg: 'Scherm verbindt opnieuw — je telefoon is mogelijk losgekoppeld van het instelnetwerk.' }));
+  };
+  wifiForget = () => {
+    fetch('/wifi', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ forget: true }) })
+      .then(r => r.json())
+      .then(w => { this.setState({ wifiMsg: (w && (w.message || w.error)) || '', wifiSel: '' }); setTimeout(this._fetchWifi, 4000); })
       .catch(() => {});
   };
 
@@ -454,8 +534,8 @@ class Component extends DCLogic {
   _applyHash = () => {
     const p = (location.pathname || '').toLowerCase();
     const h = (location.hash || '').replace(/^#\/?/, '').toLowerCase();
-    const beheer = /\/(beheer|instellingen|settings)\/?$/.test(p) ||
-      h === 'beheer' || h === 'instellingen' || h === 'config' || h === 'settings';
+    const beheer = /\/(beheer|instellingen|settings|setup|wifi-setup)\/?$/.test(p) ||
+      h === 'beheer' || h === 'instellingen' || h === 'config' || h === 'settings' || h === 'setup';
     this.setState({ tab: beheer ? 'beheer' : 'display' });
   };
 
@@ -812,6 +892,36 @@ class Component extends DCLogic {
     const loggedOut = !loggedIn;
     const loginName = login.name || login.user || '';
 
+    // Wifi / network card (beheer + setup portal). Data from the /wifi poll.
+    const wifi = this.state.wifi || {};
+    const wifiNetsRaw = Array.isArray(wifi.networks) ? wifi.networks : [];
+    const curSsid = wifi.ssid || '';
+    const wifiSel = this.state.wifiSel || '';
+    const barsFor = v => { v = +v || 0; return v >= 66 ? '▂▄▆█' : v >= 45 ? '▂▄▆_' : v >= 25 ? '▂▄__' : '▂___'; };
+    const wifiNets = wifiNetsRaw.map((n, i) => {
+      const isSel = wifiSel === n.ssid;
+      const isCur = !!curSsid && n.ssid === curSsid;
+      return {
+        key: 'wifi-' + i, ssid: n.ssid, secured: !!n.secured,
+        current: isCur, selected: isSel, bars: barsFor(n.strength),
+        onPick: () => this.onPickNet(n.ssid),
+        border: isSel ? '#0b0d11' : 'rgba(0,0,0,.12)',
+        bg: isCur ? '#f1f8f3' : '#fff',
+        radius: isSel ? '10px 10px 0 0' : '10px',
+      };
+    });
+    const wifiMode = wifi.mode || '';
+    const onHotspot = wifiMode === 'HOTSPOT';
+    const wifiConnectedNow = wifiMode === 'CONNECTED' || (!wifiMode && !!curSsid);
+    const wifiStatusLabel = onHotspot ? 'Instelnetwerk actief'
+      : wifiConnectedNow ? ('Verbonden · ' + (curSsid || 'wifi'))
+      : (wifiMode === 'CONNECTING' ? 'Verbinden…' : 'Niet verbonden');
+    const wifiDotColor = wifiConnectedNow ? '#2e9d5b' : onHotspot ? '#b5840a' : '#a8453b';
+    const wifiHint = onHotspot
+      ? 'Kies het wifi van de locatie en vul het wachtwoord in. Let op: zodra het scherm verbindt valt dit instelnetwerk weg — verbind je telefoon daarna met datzelfde wifi en open toernooitv.local/beheer.'
+      : 'Kies een netwerk om dit scherm met internet te verbinden.';
+    const wifiIpLabel = wifi.ip ? ('IP-adres: ' + wifi.ip) : '';
+
     // On-screen overlays for the fullscreen kiosk.
     const st = this.state.status || {};
     const bsrc = (this.state.board && this.state.board.source) || '';
@@ -916,6 +1026,13 @@ class Component extends DCLogic {
       onPickTournament: this.onPickTournament,
       connRows,
       hasConn: connRows.length > 0,
+      // wifi / network
+      wifiNets, hasNets: wifiNets.length > 0, noNets: wifiNets.length === 0,
+      wifiStatusLabel, wifiDotColor, wifiHint, wifiIpLabel,
+      wifiConnected: wifiConnectedNow,
+      wifiPass: this.state.wifiPass, wifiMsg: this.state.wifiMsg,
+      onWifiPass: this.onWifiPass, wifiConnect: this.wifiConnect,
+      wifiForget: this.wifiForget, wifiScan: this.wifiScan, onPickNet: this.onPickNet,
       onCookieInput: this.onCookieInput,
       addTournament: this.addTournament,
       saveConfig: this.saveConfig,
