@@ -139,9 +139,13 @@
       <sc-if value="{{ clubNoLogo }}" hint-placeholder-val="{{ true }}">
         <div style="width:48px; height:48px; border-radius:12px; background:#fff; display:flex; align-items:center; justify-content:center; font:900 22px Archivo; color:#0b0d11;">{{ clubInitials }}</div>
       </sc-if>
-      <div style="display:flex; flex-direction:column; line-height:1.1;">
+      <div style="display:flex; flex-direction:column; line-height:1.1; gap:5px;">
         <span style="font:800 26px Archivo; color:#fff; letter-spacing:.3px;">{{ clubName }}</span>
-        <span style="font:700 13px 'JetBrains Mono'; letter-spacing:5px; color:#7d8696;">TOERNOOI TV</span>
+        <!-- Toernooi TV logo — compacte 'powered by' lockup (lean -9°, rode TV-plaat) -->
+        <span style="display:inline-flex; align-items:center; gap:3px; transform:skewX(-9deg); width:fit-content;">
+          <span style="font:900 14px Archivo; letter-spacing:-.5px; color:#aeb6c2;">Toernooi</span>
+          <span style="display:inline-flex; align-items:center; padding:0 5px 2px; background:#FF2E2E;"><span style="font:900 13px Archivo; letter-spacing:-.5px; color:#fff;">TV</span></span>
+        </span>
       </div>
     </div>
     <div style="display:flex; align-items:center; gap:22px;">

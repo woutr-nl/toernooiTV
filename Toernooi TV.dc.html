@@ -3,6 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Toernooi TV</title>
+<!-- Favicon: TV-only mark — rode plaat, witte 'TV' (rally-streep valt weg onder ~48px) -->
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='15' fill='%23FF2E2E'/%3E%3Cg transform='translate(32 38) skewX(-9)'%3E%3Ctext text-anchor='middle' font-family='Archivo,Arial,sans-serif' font-weight='900' font-size='30' fill='white'%3ETV%3C/text%3E%3C/g%3E%3C/svg%3E">
 <script src="./vendor/react.production.min.js"></script>
 <script src="./vendor/react-dom.production.min.js"></script>
 <script src="./support.js"></script>
@@ -69,11 +72,15 @@
 
     <!-- APP HEADER -->
     <div style="height:72px; background:#0b0d11; display:flex; align-items:center; justify-content:space-between; padding:0 32px; position:sticky; top:0; z-index:20;">
-      <div style="display:flex; align-items:center; gap:13px;">
-        <div style="width:34px; height:34px; border-radius:9px; background:#fff; display:flex; align-items:center; justify-content:center;">
-          <span style="width:13px; height:13px; border-radius:50%; background:#ff3b3b;"></span>
+      <div style="display:flex; align-items:center; gap:16px;">
+        <!-- Toernooi TV logo — primaire lockup (wit op donker): lean -9°, rode TV-plaat, rally-streep -->
+        <div style="transform:skewX(-9deg); width:fit-content;">
+          <div style="display:flex; align-items:center; gap:5px;">
+            <span style="font:900 27px/.84 Archivo; letter-spacing:-1.2px; color:#fff;">Toernooi</span>
+            <span style="display:inline-flex; align-items:center; padding:2px 7px 4px; background:#FF2E2E;"><span style="font:900 25px/.84 Archivo; letter-spacing:-1.2px; color:#fff;">TV</span></span>
+          </div>
+          <div style="height:3px; margin-top:4px; background:linear-gradient(90deg,#C8F24A,#3DA9FC);"></div>
         </div>
-        <span style="font:800 20px Archivo; color:#fff; letter-spacing:.3px;">Toernooi TV</span>
         <span style="font:700 11px 'JetBrains Mono'; letter-spacing:3px; color:#7d8696; padding:4px 9px; border:1px solid rgba(255,255,255,.14); border-radius:6px;">BEHEER</span>
       </div>
       <div style="display:flex; align-items:center; gap:18px;">
