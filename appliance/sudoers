@@ -1,0 +1,6 @@
+# template — installed to /etc/sudoers.d/toernooitv by install-kiosk.sh (lets the server start the updater
+# and run the portal's restart / reboot / logs commands). Fixed command lines only, no wildcards.
+__USER__ ALL=(root) NOPASSWD: /usr/bin/systemctl start --no-block toernooitv-update.service
+__USER__ ALL=(root) NOPASSWD: /usr/bin/systemctl restart --no-block toernooitv-server.service toernooitv-kiosk.service
+__USER__ ALL=(root) NOPASSWD: /sbin/reboot
+__USER__ ALL=(root) NOPASSWD: /usr/bin/journalctl -u toernooitv-server -u toernooitv-kiosk -n 300 --no-pager

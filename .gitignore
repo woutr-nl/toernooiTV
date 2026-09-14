@@ -3,6 +3,17 @@ config.json
 config.json.tmp
 *.tmp
 
+# Uploaded club/sponsor logos (runtime state, referenced from config.json)
+uploads/
+
+# Portal database + logo previews (hosted service runtime state)
+portal/portal.db*
+portal/uploads/
+
+# Box identity + update outcome (runtime state, survives updates)
+.boxid
+update-state.json
+
 # Chromium kiosk profile
 .kiosk-profile/
 

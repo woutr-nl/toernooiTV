@@ -59,9 +59,17 @@
         <div style="position:absolute; top:0; left:0; right:0; z-index:40; background:#b54708; color:#fff; text-align:center; padding:.7vw 0; font:800 1.1vw Archivo; letter-spacing:.1vw;">Geen internet — livescores gepauzeerd, scherm draait door</div>
       </sc-if>
 
+      <!-- PORTAL LINK CODE (box not yet linked to the portal) -->
+      <sc-if value="{{ showLinkCode }}" hint-placeholder-val="{{ true }}">
+        <div style="position:absolute; bottom:5.4vw; left:50%; transform:translateX(-50%); z-index:40; background:rgba(8,10,14,.82); color:#dfe3ea; padding:.7vw 1.4vw; border-radius:.7vw; font:700 1vw Archivo; white-space:nowrap;">Portaal-koppelcode: <span style="font-family:'JetBrains Mono'; color:#fff; letter-spacing:.15vw;">{{ linkCode }}</span></div>
+      </sc-if>
+
       <!-- NOT-YET-COUPLED HINT -->
-      <sc-if value="{{ needsConfig }}" hint-placeholder-val="{{ true }}">
+      <sc-if value="{{ needsConfigLocal }}" hint-placeholder-val="{{ true }}">
         <div style="position:absolute; bottom:2.4vw; left:50%; transform:translateX(-50%); z-index:40; background:rgba(8,10,14,.82); color:#dfe3ea; padding:.7vw 1.4vw; border-radius:.7vw; font:700 1vw Archivo;">Nog niet gekoppeld · open <span style="font-family:'JetBrains Mono'; color:#fff;">{{ beheerUrl }}</span></div>
+      </sc-if>
+      <sc-if value="{{ needsConfigManaged }}">
+        <div style="position:absolute; bottom:2.4vw; left:50%; transform:translateX(-50%); z-index:40; background:rgba(8,10,14,.82); color:#dfe3ea; padding:.7vw 1.4vw; border-radius:.7vw; font:700 1vw Archivo;">Nog niet ingesteld · beheer via het Toernooi TV-portaal</div>
       </sc-if>
     </div>
   </sc-if>
@@ -92,10 +100,21 @@
     </div>
 
     <div style="padding:36px 32px 60px;">
-      <div style="max-width:1300px; margin:0 auto; display:grid; grid-template-columns:minmax(0,1fr) minmax(340px,440px); gap:32px; align-items:start;">
+      <div style="max-width:1300px; margin:0 auto; display:grid; grid-template-columns:{{ gridCols }}; justify-content:center; gap:32px; align-items:start;">
 
         <!-- FORM -->
         <div style="display:flex; flex-direction:column; gap:22px;">
+
+          <!-- MANAGED VIA THE PORTAL (linked box: only wifi stays local) -->
+          <sc-if value="{{ managed }}">
+            <div style="background:#fff; border:1px solid rgba(0,0,0,.08); border-radius:16px; padding:28px 30px;">
+              <div style="display:flex; align-items:center; gap:10px; margin-bottom:6px;">
+                <span style="font:800 20px Archivo; color:#1b1a17;">Beheer via het portaal</span>
+                <span style="font:700 10px 'JetBrains Mono'; letter-spacing:1.5px; color:#8a8578; background:#f0eee8; padding:4px 8px; border-radius:6px;">PORTAAL</span>
+              </div>
+              <div style="font:500 14px Archivo; color:#8a8578;">{{ portalNotice }}</div>
+            </div>
+          </sc-if>
 
           <!-- WIFI & NETWERK -->
           <div style="background:#fff; border:1px solid rgba(0,0,0,.08); border-radius:16px; padding:28px 30px;">
@@ -147,6 +166,7 @@
             </sc-if>
           </div>
 
+          <sc-if value="{{ notManaged }}">
           <!-- VERBINDING & TOERNOOIEN -->
           <div style="background:#fff; border:1px solid rgba(0,0,0,.08); border-radius:16px; padding:28px 30px;">
             <div style="display:flex; align-items:center; gap:10px; margin-bottom:6px;">
@@ -294,6 +314,33 @@
             </div>
           </div>
 
+          <!-- PROMO / MARKETING -->
+          <div style="background:#fff; border:1px solid rgba(0,0,0,.08); border-radius:16px; padding:28px 30px;">
+            <div style="display:flex; align-items:center; gap:10px; margin-bottom:6px;">
+              <span style="font:800 20px Archivo; color:#1b1a17;">Marketingslide</span>
+              <span style="font:700 10px 'JetBrains Mono'; letter-spacing:1.5px; color:#8a5a2b; background:#fbeede; padding:4px 8px; border-radius:6px;">TOERNOOI TV</span>
+            </div>
+            <div style="font:500 14px Archivo; color:#8a8578; margin-bottom:20px;">Toont Toernooi TV in de rotatie — elke club die het scherm ziet, kan meer info vinden op de website.</div>
+            <div style="margin-bottom:16px;">
+              <div style="font:700 12px Archivo; letter-spacing:1.5px; color:#8a8578; text-transform:uppercase; margin-bottom:8px;">Label (klein, boven)</div>
+              <input type="text" value="{{ promoEyebrow }}" onChange="{{ onPromoEyebrow }}" style="width:100%; padding:13px 15px; border:1px solid rgba(0,0,0,.14); border-radius:10px; font:600 16px Archivo; color:#1b1a17; background:#faf9f6; outline:none;">
+            </div>
+            <div style="margin-bottom:16px;">
+              <div style="font:700 12px Archivo; letter-spacing:1.5px; color:#8a8578; text-transform:uppercase; margin-bottom:8px;">Boodschap</div>
+              <input type="text" value="{{ promoMessage }}" onChange="{{ onPromoMessage }}" style="width:100%; padding:13px 15px; border:1px solid rgba(0,0,0,.14); border-radius:10px; font:600 16px Archivo; color:#1b1a17; background:#faf9f6; outline:none;">
+            </div>
+            <div style="display:grid; grid-template-columns:1fr auto; gap:16px; align-items:end;">
+              <div>
+                <div style="font:700 12px Archivo; letter-spacing:1.5px; color:#8a8578; text-transform:uppercase; margin-bottom:8px;">Call-to-action</div>
+                <input type="text" value="{{ promoCta }}" onChange="{{ onPromoCta }}" style="width:100%; padding:13px 15px; border:1px solid rgba(0,0,0,.14); border-radius:10px; font:600 16px Archivo; color:#1b1a17; background:#faf9f6; outline:none;">
+              </div>
+              <div style="display:flex; align-items:center; gap:12px;">
+                <input type="color" value="{{ promoColor }}" onChange="{{ onPromoColor }}" style="width:54px; height:48px; border:1px solid rgba(0,0,0,.14); border-radius:10px; background:none; cursor:pointer; padding:2px;">
+                <div style="display:flex; flex-direction:column;"><span style="font:700 14px Archivo; color:#1b1a17;">Kleur</span><span style="font:600 12px 'JetBrains Mono'; color:#8a8578; text-transform:uppercase;">{{ promoColor }}</span></div>
+              </div>
+            </div>
+          </div>
+
           <!-- BANEN (demo van API-data) -->
           <div style="background:#fff; border:1px solid rgba(0,0,0,.08); border-radius:16px; padding:28px 30px;">
             <div style="display:flex; align-items:center; gap:10px; margin-bottom:6px;">
@@ -308,6 +355,17 @@
             <div style="padding-top:18px;">
               <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;"><span style="display:flex; align-items:center; gap:10px;"><span style="width:12px; height:12px; border-radius:50%; background:{{ padelColor }};"></span><span style="font:700 15px Archivo; color:#1b1a17;">Padelbanen</span></span><span style="font:700 16px 'JetBrains Mono'; color:#1b1a17;">{{ padelBanen }} · {{ padelPagesLabel }}</span></div>
               <input type="range" min="1" max="12" step="1" value="{{ padelBanen }}" onChange="{{ onPadelBanen }}" style="width:100%;">
+            </div>
+            <div style="margin-top:18px; padding-top:18px; border-top:1px solid rgba(0,0,0,.06);">
+              <div style="font:700 12px Archivo; letter-spacing:1.5px; color:#8a8578; text-transform:uppercase; margin-bottom:14px;">Gespeelde wedstrijden · uitslagen</div>
+              <div style="padding-bottom:18px; border-bottom:1px solid rgba(0,0,0,.06);">
+                <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;"><span style="display:flex; align-items:center; gap:10px;"><span style="width:12px; height:12px; border-radius:50%; background:{{ tennisColor }};"></span><span style="font:700 15px Archivo; color:#1b1a17;">Tennis-uitslagen</span></span><span style="font:700 16px 'JetBrains Mono'; color:#1b1a17;">{{ tennisResults }}</span></div>
+                <input type="range" min="0" max="45" step="1" value="{{ tennisResults }}" onChange="{{ onTennisResults }}" style="width:100%;">
+              </div>
+              <div style="padding-top:18px;">
+                <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;"><span style="display:flex; align-items:center; gap:10px;"><span style="width:12px; height:12px; border-radius:50%; background:{{ padelColor }};"></span><span style="font:700 15px Archivo; color:#1b1a17;">Padel-uitslagen</span></span><span style="font:700 16px 'JetBrains Mono'; color:#1b1a17;">{{ padelResults }}</span></div>
+                <input type="range" min="0" max="45" step="1" value="{{ padelResults }}" onChange="{{ onPadelResults }}" style="width:100%;">
+              </div>
             </div>
           </div>
 
@@ -327,8 +385,12 @@
               <button onClick="{{ toggleSponsor }}" style="position:relative; width:52px; height:30px; border-radius:999px; border:none; cursor:pointer; padding:0; background:{{ spTrack }}; transition:background .2s;"><span style="position:absolute; top:3px; left:3px; width:24px; height:24px; border-radius:50%; background:#fff; box-shadow:0 1px 2px rgba(0,0,0,.3); transform:{{ spKnob }}; transition:transform .2s;"></span></button>
             </div>
             <div style="display:flex; align-items:center; justify-content:space-between; padding:14px 0; border-bottom:1px solid rgba(0,0,0,.06);">
-              <div style="display:flex; align-items:center; gap:12px;"><span style="width:12px; height:12px; border-radius:50%; background:#cfd6e0;"></span><span style="font:700 16px Archivo; color:#1b1a17;">Uitslagen</span></div>
+              <div style="display:flex; align-items:center; gap:12px;"><span style="width:12px; height:12px; border-radius:50%; background:#c6a15b;"></span><span style="font:700 16px Archivo; color:#1b1a17;">Uitslagen-pagina's</span></div>
               <button onClick="{{ toggleResults }}" style="position:relative; width:52px; height:30px; border-radius:999px; border:none; cursor:pointer; padding:0; background:{{ rsTrack }}; transition:background .2s;"><span style="position:absolute; top:3px; left:3px; width:24px; height:24px; border-radius:50%; background:#fff; box-shadow:0 1px 2px rgba(0,0,0,.3); transform:{{ rsKnob }}; transition:transform .2s;"></span></button>
+            </div>
+            <div style="display:flex; align-items:center; justify-content:space-between; padding:14px 0; border-bottom:1px solid rgba(0,0,0,.06);">
+              <div style="display:flex; align-items:center; gap:12px;"><span style="width:12px; height:12px; border-radius:50%; background:{{ promoColor }};"></span><span style="font:700 16px Archivo; color:#1b1a17;">Marketingslide</span></div>
+              <button onClick="{{ togglePromo }}" style="position:relative; width:52px; height:30px; border-radius:999px; border:none; cursor:pointer; padding:0; background:{{ psTrack }}; transition:background .2s;"><span style="position:absolute; top:3px; left:3px; width:24px; height:24px; border-radius:50%; background:#fff; box-shadow:0 1px 2px rgba(0,0,0,.3); transform:{{ psKnob }}; transition:transform .2s;"></span></button>
             </div>
             <div style="padding-top:20px;">
               <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;"><span style="font:700 14px Archivo; color:#56524a;">Seconden per baan-pagina</span><span style="font:700 16px 'JetBrains Mono'; color:#1b1a17;">{{ secCourt }}s</span></div>
@@ -337,6 +399,14 @@
             <div style="padding-top:18px;">
               <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;"><span style="font:700 14px Archivo; color:#56524a;">Seconden per sponsorslide</span><span style="font:700 16px 'JetBrains Mono'; color:#1b1a17;">{{ secSponsor }}s</span></div>
               <input type="range" min="3" max="15" step="1" value="{{ secSponsor }}" onChange="{{ onSecSponsor }}" style="width:100%;">
+            </div>
+            <div style="padding-top:18px;">
+              <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;"><span style="font:700 14px Archivo; color:#56524a;">Seconden per uitslagen-pagina</span><span style="font:700 16px 'JetBrains Mono'; color:#1b1a17;">{{ secResults }}s</span></div>
+              <input type="range" min="4" max="20" step="1" value="{{ secResults }}" onChange="{{ onSecResults }}" style="width:100%;">
+            </div>
+            <div style="padding-top:18px;">
+              <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;"><span style="font:700 14px Archivo; color:#56524a;">Seconden per marketingslide</span><span style="font:700 16px 'JetBrains Mono'; color:#1b1a17;">{{ secPromo }}s</span></div>
+              <input type="range" min="4" max="20" step="1" value="{{ secPromo }}" onChange="{{ onSecPromo }}" style="width:100%;">
             </div>
           </div>
 
@@ -356,11 +426,37 @@
             <button onClick="{{ resetSettings }}" style="margin-top:24px; border:1px solid rgba(0,0,0,.14); background:#faf9f6; cursor:pointer; padding:11px 18px; border-radius:10px; font:700 14px Archivo; color:#56524a;">Herstel standaardinstellingen</button>
           </div>
 
+          <!-- SOFTWARE -->
+          <div style="background:#fff; border:1px solid rgba(0,0,0,.08); border-radius:16px; padding:28px 30px;">
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px;">
+              <span style="font:800 20px Archivo; color:#1b1a17;">Software</span>
+              <button onClick="{{ doUpdate }}" style="border:1px solid rgba(0,0,0,.14); background:#fff; cursor:pointer; padding:8px 14px; border-radius:9px; font:700 13px Archivo; color:#56524a; opacity:{{ swBtnOp }};">{{ swBtnLabel }}</button>
+            </div>
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:16px; padding:12px 0; border-bottom:1px solid rgba(0,0,0,.06);">
+              <span style="font:700 14px Archivo; color:#56524a;">Versie</span>
+              <span style="font:700 16px 'JetBrains Mono'; color:#1b1a17;">{{ swVersion }}</span>
+            </div>
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:16px; padding:12px 0; border-bottom:1px solid rgba(0,0,0,.06);">
+              <span style="font:700 14px Archivo; color:#56524a;">Box-ID</span>
+              <span style="font:600 12px 'JetBrains Mono'; color:#8a8578; word-break:break-all; text-align:right;">{{ swBoxId }}</span>
+            </div>
+            <div style="display:flex; align-items:baseline; justify-content:space-between; gap:16px; padding:12px 0;">
+              <span style="font:700 14px Archivo; color:#56524a; white-space:nowrap;">Laatste update</span>
+              <span style="font:600 14px Archivo; color:{{ swUpdateColor }}; text-align:right;">{{ swUpdateLabel }}</span>
+            </div>
+            <div style="font:600 13px Archivo; color:{{ swMsgColor }};">{{ swMsg }}</div>
+          </div>
+          </sc-if>
+
         </div>
 
         <!-- LIVE PREVIEW -->
+        <sc-if value="{{ notManaged }}">
         <div style="position:sticky; top:96px; display:flex; flex-direction:column; gap:14px;">
-          <div style="font:700 12px Archivo; letter-spacing:2px; color:#8a8578; text-transform:uppercase;">Live voorbeeld</div>
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+            <span style="font:700 12px Archivo; letter-spacing:2px; color:#8a8578; text-transform:uppercase;">Live voorbeeld</span>
+            <span style="font:600 13px Archivo; color:#56524a; text-align:right;">{{ displayMsg }}</span>
+          </div>
           <div ref="{{ setSmallBox }}" style="width:100%; aspect-ratio:16 / 9; border-radius:10px; overflow:hidden; box-shadow:0 12px 34px rgba(0,0,0,.22); background:#000; position:relative;">
             <div style="transform:scale({{ smallScale }}); transform-origin:top left; width:1920px; height:1080px;">
               <dc-import name="Display" hint-size="1920px,1080px"
@@ -382,6 +478,7 @@
           </div>
           <button onClick="{{ goWeergave }}" style="margin-top:4px; border:none; background:#0b0d11; cursor:pointer; padding:14px; border-radius:11px; font:700 15px Archivo; color:#fff;">Open weergave-modus →</button>
         </div>
+        </sc-if>
 
       </div>
     </div>
@@ -402,14 +499,25 @@ class Component extends DCLogic {
     showPadel: true,
     showSponsor: true,
     showResults: true,
+    showPromo: true,
     secCourt: 8,
     secSponsor: 6,
+    secResults: 9,
+    secPromo: 7,
+    promoEyebrow: 'OOK OP JULLIE CLUB?',
+    promoMessage: 'Live banen, uitslagen en je sponsors op één scherm in de kantine.',
+    promoCta: 'toernooitv.nl',
+    promoColor: '#ff5a3c',
+    tennisResults: 14,
+    padelResults: 10,
     tennisColor: '#c8f24a',
     padelColor: '#3da9fc',
     tennisBanen: 6,
     padelBanen: 4,
   };
 
+  // Legacy per-browser settings key — read once to carry old settings over to
+  // the box (settings now live server-side in config.json "display").
   LSKEY = 'toernooitv_settings_v2';
 
   // Demo data pools — in productie komt dit uit de toernooi-API.
@@ -433,44 +541,27 @@ class Component extends DCLogic {
     ['Lammers / Kuiper', 'Bruin / Sanders', 'Padel Masters'],
     ['Graaf / Vink', 'Schipper / Reijnders', 'Mix Toernooi'],
   ];
-  // Demo results [category, winner, loser, score] — only shown when not connected.
-  TENNIS_RESULTS = [
-    ['HE 1', 'R. van der Berg', 'T. Jansen', '6-3 6-4'],
-    ['HE 1', 'L. de Wit', 'K. Mulder', '7-5 6-2'],
-    ['DE 2', 'N. Bakker', 'P. Vermeer', '6-4 3-6 6-1'],
-    ['Jeugd Cup', 'D. Visser', 'F. Hofman', '6-2 6-2'],
-    ['Veteranen 35+', 'J. Willemsen', 'R. Prins', '7-6 6-4'],
-    ['HE 2', 'S. Koster', 'M. de Jong', '6-1 6-3'],
-  ];
-  PADEL_RESULTS = [
-    ['HD 3', 'de Vries / Smit', 'el Amrani / Janssen', '6-4 6-4'],
-    ['Padel Masters', 'Kok / Maas', 'Peeters / Dijkstra', '7-5 4-6 6-3'],
-    ['DD 2', 'Bos / Vos', 'Hendriks / Willems', '6-2 6-1'],
-    ['Mix Toernooi', 'Faber / Hoekstra', 'Veen / Driessen', '6-3 7-5'],
-    ['HD 3', 'Mol / Aarts', 'Daatselaar / Knol', '6-4 6-4'],
-    ['Padel Masters', 'Lammers / Kuiper', 'Bruin / Sanders', '6-0 6-2'],
-  ];
 
   state = {
     settings: { ...this.DEFAULTS }, tab: 'display', t: 0,
     bigScale: 0.45, smallScale: 0.22, fullScale: 0.5, board: null, status: null,
     // connection config (lives server-side; cookie only ever shown masked)
     cfg: { cookieSet: false, cookieHint: '', tournaments: [], auth: null, login: null },
-    cookieInput: '', saveMsg: '',
+    cookieInput: '', saveMsg: '', displayMsg: '',
     loginUser: '', loginPass: '', loginMsg: '',
     available: [], availMsg: '', pickValue: '',
     // wifi / network (managed server-side via comitup)
     wifi: null, wifiSel: '', wifiPass: '', wifiMsg: '',
+    // software version / box id / last update outcome (from /config)
+    sw: { version: '', boxId: '', update: null, msg: '', busy: false, bad: false },
   };
 
   BOARD_POLL_MS = 15000; // poll the tp-api proxy on a fixed interval (independent of tab focus)
 
   componentDidMount() {
-    let saved = null;
-    try { saved = JSON.parse(localStorage.getItem(this.LSKEY) || 'null'); } catch (e) {}
-    if (saved && typeof saved === 'object') this.setState({ settings: { ...this.DEFAULTS, ...saved } });
     this._iv = setInterval(() => this.setState(s => ({ t: s.t + 1 })), 1000);
     this._fetchConfig();
+    this._cfgIv = setInterval(this._pollDisplay, this.BOARD_POLL_MS);
     this._fetchMyTournaments();
     this._fetchBoard();
     this._bv = setInterval(this._fetchBoard, this.BOARD_POLL_MS);
@@ -488,7 +579,7 @@ class Component extends DCLogic {
     window.addEventListener('resize', this._onResize);
     this._measure();
   }
-  componentWillUnmount() { clearInterval(this._iv); clearInterval(this._bv); clearInterval(this._sv); clearInterval(this._wv); clearInterval(this._hb); clearInterval(this._dr); window.removeEventListener('hashchange', this._onHash); window.removeEventListener('resize', this._onResize); }
+  componentWillUnmount() { clearInterval(this._iv); clearInterval(this._cfgIv); clearTimeout(this._pushTimer); clearInterval(this._bv); clearInterval(this._sv); clearInterval(this._wv); clearInterval(this._hb); clearInterval(this._dr); clearTimeout(this._updTimer); window.removeEventListener('hashchange', this._onHash); window.removeEventListener('resize', this._onResize); }
 
   // Device/network status for the on-screen overlay (online? on the setup hotspot?).
   _fetchStatus = () => {
@@ -556,12 +647,117 @@ class Component extends DCLogic {
   };
 
   // Connection config (cookie + tournament list), managed server-side.
-  _cfgOf = c => ({ cookieSet: !!c.cookieSet, cookieHint: c.cookieHint || '', tournaments: c.tournaments || [], auth: c.auth || null, login: c.login || null });
+  _cfgOf = c => ({ cookieSet: !!c.cookieSet, cookieHint: c.cookieHint || '', tournaments: c.tournaments || [], auth: c.auth || null, login: c.login || null, display: c.display || null, managed: !!c.managed, portalName: c.portalName || '' });
   _fetchConfig = () => {
     fetch('/config', { cache: 'no-store' })
       .then(r => (r.ok ? r.json() : null))
-      .then(c => { if (c) this.setState({ cfg: this._cfgOf(c) }); })
+      .then(c => {
+        if (!c) return;
+        this.setState({ cfg: this._cfgOf(c) });
+        this._applySw(c);
+        this._applyDisplay(c.display);
+        // One-time carry-over: a box without stored display settings adopts this
+        // browser's old localStorage settings (only from the settings page).
+        // (never on a portal-managed box: POST /config is refused there)
+        if (c.display == null && this.state.tab === 'beheer' && !c.managed) {
+          let saved = null;
+          try { saved = JSON.parse(localStorage.getItem(this.LSKEY)); } catch (e) {}
+          if (saved && typeof saved === 'object') this.update(saved);
+        }
+      })
       .catch(() => {});
+  };
+
+  // Display settings live on the box. Poll them (display + beheer) so a change
+  // made on any device reaches every screen within one cycle. Only `display` is
+  // applied here — tournament edits in progress stay untouched.
+  _pollDisplay = () => {
+    const seq = this._pushSeq;
+    fetch('/config', { cache: 'no-store' })
+      .then(r => (r.ok ? r.json() : null))
+      .then(c => {
+        if (!c) return;
+        this._applySw(c);
+        // linking/unlinking in the portal switches the beheer layout without a reload
+        if (!!c.managed !== !!this.state.cfg.managed || (c.portalName || '') !== (this.state.cfg.portalName || ''))
+          this.setState(s => ({ cfg: { ...s.cfg, managed: !!c.managed, portalName: c.portalName || '' } }));
+        if (seq === this._pushSeq) this._applyDisplay(c.display);
+      })
+      .catch(() => {});
+  };
+  _applySw = c => {
+    if (c && c.version) this.setState(s => ({ sw: { ...s.sw, version: c.version, boxId: c.boxId || '', update: c.update || null } }));
+  };
+
+  // Triggered self-update: POST /update starts the updater on the box; then poll
+  // /config until an outcome newer than the previous attempt appears. The server
+  // restarts mid-update, so failed polls just mean "still updating".
+  doUpdate = () => {
+    if (this.state.sw.busy) return;
+    const prevStarted = this.state.sw.update && this.state.sw.update.startedAt;
+    const setSw = o => this.setState(s => ({ sw: { ...s.sw, ...o } }));
+    setSw({ busy: true, bad: false, msg: 'Update starten…' });
+    fetch('/update', { method: 'POST' })
+      .then(r => r.json())
+      .then(r => {
+        if (!(r && r.ok)) { setSw({ busy: false, bad: true, msg: (r && r.error) || 'Update starten mislukt' }); return; }
+        setSw({ msg: 'Bezig met bijwerken… (het scherm kan even zwart worden)' });
+        let tries = 0;
+        const poll = () => {
+          if (++tries > 60) { setSw({ busy: false, bad: true, msg: 'Nog geen resultaat na 3 minuten — kijk later opnieuw.' }); return; }
+          fetch('/config', { cache: 'no-store' })
+            .then(r2 => (r2.ok ? r2.json() : null))
+            .then(c => {
+              const u = c && c.update;
+              if (c) this._applySw(c);
+              if (!u || u.startedAt === prevStarted || u.status === 'running') { this._updTimer = setTimeout(poll, 3000); return; }
+              if (u.status === 'ok') setSw({ busy: false, bad: false, msg: 'Bijgewerkt naar ' + c.version + ' ✓' });
+              else if (u.status === 'up-to-date') setSw({ busy: false, bad: false, msg: 'Al up-to-date ✓' });
+              else setSw({ busy: false, bad: true, msg: u.error || 'Update mislukt' });
+            })
+            .catch(() => { this._updTimer = setTimeout(poll, 3000); });
+        };
+        this._updTimer = setTimeout(poll, 3000);
+      })
+      .catch(() => setSw({ busy: false, bad: true, msg: 'Server niet bereikbaar' }));
+  };
+  _applyDisplay = d => {
+    if (d && typeof d === 'object' && !this._dirty) this.setState({ settings: { ...this.DEFAULTS, ...d } });
+  };
+  _pushSeq = 0;
+  _pushDisplay = () => {
+    this._pushTimer = null;
+    const seq = ++this._pushSeq;
+    const sent = this.state.settings;
+    const latest = () => seq === this._pushSeq && !this._pushTimer;
+    fetch('/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ display: sent }) })
+      .then(r => r.json())
+      .then(c => {
+        if (!(c && c.ok && c.display)) {
+          if (latest()) this._dirty = false;
+          this.setState({ displayMsg: (c && c.error) || 'Opslaan mislukt' });
+          return;
+        }
+        const d = c.display;
+        if (latest()) {
+          // adopt the server's cleaned values (uploaded logo → /uploads/… URL, clamping)
+          this._dirty = false;
+          this.setState({ settings: { ...this.DEFAULTS, ...d }, displayMsg: c.warning || 'Opgeslagen ✓' });
+        } else {
+          // newer edits pending: only swap sent data-URL logos for their stored URL
+          this.setState(s => {
+            const settings = { ...s.settings };
+            ['clubLogo', 'sponsorLogo'].forEach(k => {
+              if (String(sent[k]).startsWith('data:') && settings[k] === sent[k]) settings[k] = d[k];
+            });
+            return { settings, displayMsg: c.warning || s.displayMsg };
+          });
+        }
+      })
+      .catch(() => {
+        if (latest()) this._dirty = false;
+        this.setState({ displayMsg: 'Proxy niet bereikbaar — draait server.py?' });
+      });
   };
   _mutTournaments(fn) {
     this.setState(s => {
@@ -659,12 +855,12 @@ class Component extends DCLogic {
   goWeergave = () => { location.href = '/'; };
   goBeheer = () => { location.href = '/beheer'; };
 
+  // Optimistic local merge, then a debounced save to the box.
   update(patch) {
-    this.setState(s => {
-      const settings = { ...s.settings, ...patch };
-      try { localStorage.setItem(this.LSKEY, JSON.stringify(settings)); } catch (e) {}
-      return { settings };
-    });
+    this._dirty = true;
+    this.setState(s => ({ settings: { ...s.settings, ...patch } }));
+    clearTimeout(this._pushTimer);
+    this._pushTimer = setTimeout(this._pushDisplay, 500);
   }
 
   readFile(e, key) {
@@ -681,6 +877,7 @@ class Component extends DCLogic {
   renderVals() {
     const s = this.state.settings;
     const t = this.state.t;
+    const swSt = this.state.sw, upd = swSt.update;
 
     const now = new Date();
     const pad = n => String(n).padStart(2, '0');
@@ -719,6 +916,19 @@ class Component extends DCLogic {
       return chunks;
     };
     const sub = list => [...new Set(list.map(c => c.tournament))].slice(0, 3).join(' · ');
+
+    // Demo completed matches (preview only) — the results sliders set how many.
+    const SC_T = ['6-3 6-4','7-5 6-4','6-2 3-6 6-4','6-4 7-6','6-1 6-2','7-6 7-5','3-6 6-4 6-3','6-0 6-2'];
+    const SC_P = ['6-3 6-4','7-5 6-2','6-4 4-6 6-3','6-2 6-4','7-6 6-4','6-1 6-3','4-6 6-3 6-2','6-3 6-1'];
+    const genResults = (pool, sp, accent, scores, n) => {
+      const out = [];
+      for (let i = 1; i <= n; i++) {
+        const m = pool[(i - 1) % pool.length];
+        const wFirst = i % 2 === 1;
+        out.push({ key: sp + '-res-' + i, accent, tournament: m[2], winner: wFirst ? m[0] : m[1], loser: wFirst ? m[1] : m[0], score: scores[(i - 1) % scores.length], isScore: true, isWO: false, sport: sp });
+      }
+      return out;
+    };
 
     // Demo pools are PREVIEW-ONLY: they fill the admin's live preview so the
     // layout is visible before a tournament is connected. The real on-TV display
@@ -775,15 +985,15 @@ class Component extends DCLogic {
         tResults = s.showTennis ? rs.filter(r => r.sport !== 'padel') : [];
         pResults = s.showPadel ? rs.filter(r => r.sport === 'padel') : [];
       } else if (inPreview) {
-        const mkDemo = (pool, sp) => pool.map(x => ({ accent: accentFor(sp), tournament: x[0], winner: x[1], loser: x[2], score: x[3], isScore: true, isWO: false, sport: sp }));
-        tResults = s.showTennis ? mkDemo(this.TENNIS_RESULTS, 'tennis') : [];
-        pResults = s.showPadel ? mkDemo(this.PADEL_RESULTS, 'padel') : [];
+        tResults = s.showTennis ? genResults(this.TENNIS_POOL, 'tennis', s.tennisColor, SC_T, s.tennisResults) : [];
+        pResults = s.showPadel ? genResults(this.PADEL_POOL, 'padel', s.padelColor, SC_P, s.padelResults) : [];
       }
     }
 
     const COURT_BG = 'radial-gradient(120% 90% at 50% -10%, #18222f 0%, #0b0d11 55%)';
     const SPONSOR_BG = 'radial-gradient(120% 100% at 50% 28%, #122a44 0%, #090b0f 62%)';
     const RESULTS_BG = 'radial-gradient(120% 95% at 50% -5%, #15202c 0%, #0b0d11 58%)';
+    const PROMO_BG = 'radial-gradient(120% 100% at 50% 18%, #20232b 0%, #0a0b0e 60%)';
 
     const frames = [];
     // Pages follow how many courts are actually in use. If fewer than 4 are in
@@ -802,7 +1012,7 @@ class Component extends DCLogic {
       const chunks = paginate(shown); const pages = chunks.length;
       chunks.forEach((chunk, pi) => {
         frames.push({
-          id: label + '-' + pi, isCourt: true, isSponsor: false,
+          id: label + '-' + pi, isCourt: true, isSponsor: false, isResults: false, isPromo: false,
           sportLabel: label, accent, sub: sub(shown),
           pageLabel: pages > 1 ? ('Pagina ' + (pi + 1) + '/' + pages) : '',
           countLabel: shown.length + ' banen',
@@ -813,17 +1023,17 @@ class Component extends DCLogic {
     };
     const addResults = (list, label, accent) => {
       if (!list.length) return;
-      const per = 9;
+      const per = 15; // 3 cols × 5 rows
       const pages = Math.ceil(list.length / per);
       for (let p = 0; p < pages; p++) {
         const chunk = list.slice(p * per, (p + 1) * per);
         frames.push({
-          id: 'res-' + label + '-' + p, isCourt: false, isResults: true, isSponsor: false,
+          id: 'res-' + label + '-' + p, isCourt: false, isResults: true, isSponsor: false, isPromo: false,
           sportLabel: label, accent, sub: '',
           pageLabel: pages > 1 ? ('Pagina ' + (p + 1) + '/' + pages) : '',
           countLabel: list.length + ' uitslagen',
           cols: 'repeat(3, 1fr)',
-          results: chunk, courts: [], bg: RESULTS_BG, dur: s.secCourt,
+          results: chunk, courts: [], bg: RESULTS_BG, dur: s.secResults,
         });
       }
     };
@@ -831,11 +1041,12 @@ class Component extends DCLogic {
     addSport(pCourts, 'PADEL', s.padelColor);
     addResults(tResults, 'TENNIS', s.tennisColor);
     addResults(pResults, 'PADEL', s.padelColor);
-    if (s.showSponsor) frames.push({ id: 'sponsor', isCourt: false, isResults: false, isSponsor: true, sportLabel: '', accent: '#7da7d4', sub: '', pageLabel: '', countLabel: '', cols: '1fr', courts: [], results: [], bg: SPONSOR_BG, dur: s.secSponsor });
+    if (s.showPromo) frames.push({ id: 'promo', isCourt: false, isResults: false, isSponsor: false, isPromo: true, sportLabel: '', accent: s.promoColor, sub: '', pageLabel: '', countLabel: '', cols: '1fr', courts: [], results: [], eyebrow: s.promoEyebrow, message: s.promoMessage, cta: s.promoCta, bg: PROMO_BG, dur: s.secPromo });
+    if (s.showSponsor) frames.push({ id: 'sponsor', isCourt: false, isResults: false, isSponsor: true, isPromo: false, sportLabel: '', accent: '#7da7d4', sub: '', pageLabel: '', countLabel: '', cols: '1fr', courts: [], results: [], bg: SPONSOR_BG, dur: s.secSponsor });
     // No live data on the real display → an honest "Geen wedstrijden" slide
     // instead of demo. (Preview keeps demo; overlays handle wifi/setup states.)
     if (!liveOn && !inPreview) {
-      frames.unshift({ id: 'empty', isEmpty: true, isCourt: false, isResults: false, isSponsor: false, sportLabel: '', accent: '#7da7d4', sub: '', pageLabel: '', countLabel: '', cols: '1fr', courts: [], results: [], bg: COURT_BG, dur: s.secCourt });
+      frames.unshift({ id: 'empty', isEmpty: true, isCourt: false, isResults: false, isSponsor: false, isPromo: false, sportLabel: '', accent: '#7da7d4', sub: '', pageLabel: '', countLabel: '', cols: '1fr', courts: [], results: [], bg: COURT_BG, dur: s.secCourt });
     }
 
     const total = frames.reduce((a, f) => a + f.dur, 0);
@@ -846,12 +1057,12 @@ class Component extends DCLogic {
 
     const pretty = lbl => lbl.charAt(0) + lbl.slice(1).toLowerCase();
     let currentLabel = 'Geen schermen actief';
-    if (curIdx >= 0) { const f = frames[curIdx]; currentLabel = f.isSponsor ? 'Sponsorslide' : (pretty(f.sportLabel) + (f.isResults ? ' · Uitslagen' : '') + (f.pageLabel ? (' · ' + f.pageLabel) : '')); }
+    if (curIdx >= 0) { const f = frames[curIdx]; currentLabel = f.isSponsor ? 'Sponsorslide' : f.isPromo ? 'Marketing' : (pretty(f.sportLabel) + (f.isResults ? ' · Uitslagen' : '') + (f.pageLabel ? (' · ' + f.pageLabel) : '')); }
 
     const pagesLabel = n => { const p = this.pagesFor(n); return p <= 1 ? '1 pagina' : p + ' pagina’s'; };
 
     const sw = on => ({ track: on ? '#15171c' : '#cdcabf', knob: on ? 'translateX(22px)' : 'translateX(0px)' });
-    const tn = sw(s.showTennis), pd = sw(s.showPadel), sp = sw(s.showSponsor), rs = sw(s.showResults);
+    const tn = sw(s.showTennis), pd = sw(s.showPadel), sp = sw(s.showSponsor), rs = sw(s.showResults), ps = sw(s.showPromo);
     const initials = (s.clubName.replace(/[^A-Za-z ]/g, ' ').split(/\s+/).filter(Boolean).map(w => w[0]).join('').slice(0, 2).toUpperCase()) || 'TV';
     const isBeheer = this.state.tab === 'beheer';
     const mk = (src, style) => (src ? React.createElement('img', { src, style }) : null);
@@ -942,9 +1153,19 @@ class Component extends DCLogic {
     const hotspotName = st.hotspotName || 'ToernooiTV-setup-…';
     // Prefer the stable mDNS name (survives DHCP changes); show the IP as a hint.
     const beheerUrl = 'toernooitv.local/beheer' + (st.ip ? ('  ·  ' + st.ip) : '');
+    // Portal: an unlinked box shows its link code; a linked one is managed remotely.
+    const showLinkCode = !overlaySetup && !!st.linkCode;
+    const managed = !!cfg.managed;
 
     return {
-      overlaySetup, overlayOffline, needsConfig, hotspotName, beheerUrl,
+      overlaySetup, overlayOffline, hotspotName, beheerUrl,
+      needsConfigLocal: needsConfig && !st.managed,
+      needsConfigManaged: needsConfig && !!st.managed,
+      showLinkCode, linkCode: st.linkCode || '',
+      managed, notManaged: !managed,
+      gridCols: managed ? 'minmax(0,760px)' : 'minmax(0,1fr) minmax(340px,440px)',
+      portalNotice: 'Dit scherm wordt beheerd via het Toernooi TV-portaal' + (cfg.portalName ? (' als ‘' + cfg.portalName + '’') : '') +
+        '. Weergave, toernooien en de Tournamentsoftware-login pas je daar aan; hier stel je alleen de wifi in.',
       isDisplay: !isBeheer,
       isBeheer,
       fullScale: this.state.fullScale,
@@ -979,14 +1200,24 @@ class Component extends DCLogic {
       padelColor: s.padelColor,
       secCourt: s.secCourt,
       secSponsor: s.secSponsor,
+      secResults: s.secResults,
+      secPromo: s.secPromo,
       tennisBanen: s.tennisBanen,
       padelBanen: s.padelBanen,
+      tennisResults: s.tennisResults,
+      padelResults: s.padelResults,
+      promoEyebrow: s.promoEyebrow,
+      promoMessage: s.promoMessage,
+      promoCta: s.promoCta,
+      promoColor: s.promoColor,
+      displayMsg: this.state.displayMsg,
       tennisPagesLabel: pagesLabel(s.tennisBanen),
       padelPagesLabel: pagesLabel(s.padelBanen),
       tnTrack: tn.track, tnKnob: tn.knob,
       pdTrack: pd.track, pdKnob: pd.knob,
       spTrack: sp.track, spKnob: sp.knob,
       rsTrack: rs.track, rsKnob: rs.knob,
+      psTrack: ps.track, psKnob: ps.knob,
 
       // handlers
       onClubName: e => this.update({ clubName: e.target.value }),
@@ -1000,8 +1231,17 @@ class Component extends DCLogic {
       togglePadel: () => this.update({ showPadel: !s.showPadel }),
       toggleSponsor: () => this.update({ showSponsor: !s.showSponsor }),
       toggleResults: () => this.update({ showResults: !s.showResults }),
+      togglePromo: () => this.update({ showPromo: !s.showPromo }),
       onSecCourt: e => this.update({ secCourt: +e.target.value }),
       onSecSponsor: e => this.update({ secSponsor: +e.target.value }),
+      onSecResults: e => this.update({ secResults: +e.target.value }),
+      onSecPromo: e => this.update({ secPromo: +e.target.value }),
+      onPromoEyebrow: e => this.update({ promoEyebrow: e.target.value }),
+      onPromoMessage: e => this.update({ promoMessage: e.target.value }),
+      onPromoCta: e => this.update({ promoCta: e.target.value }),
+      onPromoColor: e => this.update({ promoColor: e.target.value }),
+      onTennisResults: e => this.update({ tennisResults: +e.target.value }),
+      onPadelResults: e => this.update({ padelResults: +e.target.value }),
       onTennisColor: e => this.update({ tennisColor: e.target.value }),
       onPadelColor: e => this.update({ padelColor: e.target.value }),
       onTennisBanen: e => this.update({ tennisBanen: +e.target.value }),
@@ -1048,6 +1288,21 @@ class Component extends DCLogic {
       addTournament: this.addTournament,
       saveConfig: this.saveConfig,
       clearCookie: this.clearCookie,
+      // software / updates
+      swVersion: swSt.version || '—',
+      swBoxId: swSt.boxId || '—',
+      swUpdateLabel: !upd ? 'Nog nooit bijgewerkt'
+        : upd.status === 'ok' ? 'Bijgewerkt van ' + (upd.from || '?') + ' naar ' + upd.to + (upd.finishedAt ? ' · ' + new Date(upd.finishedAt).toLocaleString('nl-NL') : '')
+        : upd.status === 'up-to-date' ? 'Al up-to-date (' + upd.to + ')'
+        : upd.status === 'running' ? 'Bezig met bijwerken…'
+        : upd.status === 'rolled-back' ? 'Update naar ' + upd.to + ' mislukt — teruggezet naar ' + (upd.from || '?') + (upd.error ? ': ' + upd.error : '')
+        : 'Update mislukt' + (upd.error ? ': ' + upd.error : ''),
+      swUpdateColor: upd && (upd.status === 'failed' || upd.status === 'rolled-back') ? '#a8453b' : '#8a8578',
+      swMsg: swSt.msg,
+      swMsgColor: swSt.bad ? '#a8453b' : '#8a8578',
+      swBtnLabel: swSt.busy ? 'Bezig…' : 'Nu bijwerken',
+      swBtnOp: swSt.busy ? 0.5 : 1,
+      doUpdate: this.doUpdate,
     };
   }
 }

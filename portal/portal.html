@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Toernooi TV · Portaal</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='15' fill='%23FF2E2E'/%3E%3Cg transform='translate(32 38) skewX(-9)'%3E%3Ctext text-anchor='middle' font-family='Archivo,Arial,sans-serif' font-weight='900' font-size='30' fill='white'%3ETV%3C/text%3E%3C/g%3E%3C/svg%3E">
+<link href="/vendor/fonts.css" rel="stylesheet">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:#e7e5df;font-family:Archivo, sans-serif;color:#1b1a17;}
+  input,select,button{font-family:inherit;}
+  input[type=range]{accent-color:#15171c;width:100%;}
+  a{color:inherit;}
+  @keyframes livepulse{0%,100%{opacity:1;}50%{opacity:.28;}}
+  @media (max-width: 900px){ .grid2{grid-template-columns:minmax(0,1fr) !important;} }
+</style>
+<script src="/vendor/react.production.min.js"></script>
+<script src="/vendor/react-dom.production.min.js"></script>
+</head>
+<body>
+<div id="root"></div>
+<script>
+(function () {
+'use strict';
+// Plain React.createElement (no build step, no new dependencies). Styling follows
+// the Toernooi TV design system as used on the box's /beheer screen.
+const h = React.createElement;
+const { useState, useEffect, useCallback, useRef } = React;
+
+// ---- design tokens ---------------------------------------------------------
+const MONO = "'JetBrains Mono', monospace";
+const S = {
+  card: { background: '#fff', border: '1px solid rgba(0,0,0,.08)', borderRadius: 16, padding: '28px 30px' },
+  title: { font: '800 20px Archivo', color: '#1b1a17' },
+  sub: { font: '500 14px Archivo', color: '#8a8578' },
+  label: { font: '700 12px Archivo', letterSpacing: '1.5px', color: '#8a8578', textTransform: 'uppercase', marginBottom: 8 },
+  input: { width: '100%', padding: '13px 15px', border: '1px solid rgba(0,0,0,.14)', borderRadius: 10, font: '600 15px Archivo', color: '#1b1a17', background: '#faf9f6', outline: 'none' },
+  btn: { border: 'none', background: '#0b0d11', cursor: 'pointer', padding: '12px 22px', borderRadius: 10, font: '700 14px Archivo', color: '#fff', whiteSpace: 'nowrap' },
+  btn2: { border: '1px solid rgba(0,0,0,.14)', background: '#fff', cursor: 'pointer', padding: '8px 14px', borderRadius: 9, font: '700 13px Archivo', color: '#56524a', whiteSpace: 'nowrap' },
+  chip: { font: "700 10px " + MONO, letterSpacing: '1.5px', color: '#8a8578', background: '#f0eee8', padding: '4px 8px', borderRadius: 6, whiteSpace: 'nowrap' },
+  row: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, padding: '12px 0', borderBottom: '1px solid rgba(0,0,0,.06)' },
+  rowLabel: { font: '700 14px Archivo', color: '#56524a', whiteSpace: 'nowrap' },
+  col: { display: 'flex', flexDirection: 'column', gap: 22 },
+};
+const GREEN = '#2e9d5b', RED = '#a8453b', AMBER = '#b5840a', GREY = '#9aa3b2';
+
+// ---- api --------------------------------------------------------------------
+let onUnauthorized = () => {};
+async function api(method, path, body) {
+  const opt = { method, headers: { 'X-Portal': '1' }, credentials: 'same-origin', cache: 'no-store' };
+  if (body !== undefined) { opt.headers['Content-Type'] = 'application/json'; opt.body = JSON.stringify(body); }
+  let r;
+  try { r = await fetch(path, opt); } catch (e) { throw new Error('Portaal niet bereikbaar'); }
+  let data = {};
+  try { data = await r.json(); } catch (e) { /* empty body */ }
+  if (r.status === 401 && path !== '/api/login' && path !== '/api/password') onUnauthorized();
+  if (!r.ok) throw new Error(data.error || ('Fout ' + r.status));
+  return data;
+}
+
+function useHash() {
+  const read = () => (location.hash || '').replace(/^#\/?/, '');
+  const [hash, setHash] = useState(read());
+  useEffect(() => { const f = () => setHash(read()); window.addEventListener('hashchange', f); return () => window.removeEventListener('hashchange', f); }, []);
+  return hash;
+}
+
+// Poll a GET endpoint every `ms` (the portal pushes nothing; boxes sync every 10 s).
+function usePoll(path, ms) {
+  const [data, setData] = useState(null);
+  const [error, setError] = useState('');
+  const load = useCallback(() => {
+    if (!path) return Promise.resolve();
+    return api('GET', path).then(d => { setData(d); setError(''); }).catch(e => setError(e.message));
+  }, [path]);
+  useEffect(() => { load(); const iv = setInterval(load, ms); return () => clearInterval(iv); }, [load, ms]);
+  return [data, error, load];
+}
+
+// ---- helpers ---------------------------------------------------------------
+const pad = n => String(n).padStart(2, '0');
+function ago(ts) {
+  if (!ts) return 'nooit';
+  const s = Math.max(0, Date.now() / 1000 - ts);
+  if (s < 60) return 'zojuist';
+  if (s < 3600) return Math.floor(s / 60) + ' min geleden';
+  if (s < 86400) return Math.floor(s / 3600) + ' u geleden';
+  return new Date(ts * 1000).toLocaleString('nl-NL', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+}
+const when = ts => ts ? new Date(ts * 1000).toLocaleString('nl-NL', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
+const authInfo = a => {
+  const st = (a && a.state) || 'none';
+  return st === 'ok' ? { label: 'Verbonden', color: GREEN }
+    : st === 'expired' ? { label: 'Verlopen', color: RED }
+    : st === 'unknown' ? { label: 'Nog niet getest', color: AMBER }
+    : { label: 'Niet ingesteld', color: RED };
+};
+function updateLabel(u) {
+  if (!u) return 'Nog nooit bijgewerkt';
+  if (u.status === 'ok') return 'Bijgewerkt van ' + (u.from || '?') + ' naar ' + u.to + (u.finishedAt ? ' · ' + new Date(u.finishedAt).toLocaleString('nl-NL') : '');
+  if (u.status === 'up-to-date') return 'Al up-to-date (' + u.to + ')';
+  if (u.status === 'running') return 'Bezig met bijwerken…';
+  if (u.status === 'rolled-back') return 'Update naar ' + u.to + ' mislukt — teruggezet naar ' + (u.from || '?') + (u.error ? ': ' + u.error : '');
+  return 'Update mislukt' + (u.error ? ': ' + u.error : '');
+}
+const CMD_LABEL = { restart: 'App herstarten', reboot: 'Box herstarten', update: 'Software bijwerken', logs: 'Logs opvragen',
+  set_login: 'Tournamentsoftware-login', clear_login: 'Uitloggen bij Tournamentsoftware', set_cookie: 'Sessiecookie instellen', clear_cookie: 'Sessiecookie wissen' };
+const CRED_KINDS = ['set_login', 'clear_login', 'set_cookie', 'clear_cookie'];
+function cmdState(c, online) {
+  if (c.status === 'queued') return { label: online ? 'In wachtrij' : 'In wachtrij — wordt uitgevoerd zodra het scherm online is', color: AMBER };
+  if (c.status === 'sent') return { label: 'Bezig…', color: AMBER };
+  return { label: (c.ok ? 'Gelukt' : 'Mislukt') + (c.result ? ' · ' + c.result : ''), color: c.ok ? GREEN : RED };
+}
+
+// ---- small components ------------------------------------------------------
+const Dot = ({ color, pulse }) => h('span', { style: { width: 9, height: 9, borderRadius: '50%', background: color, flex: 'none', animation: pulse ? 'livepulse 1.4s ease-in-out infinite' : 'none' } });
+const Badge = ({ color, children }) => h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 7, font: '600 12px ' + MONO, color } }, h(Dot, { color }), children);
+const Msg = ({ text, bad }) => text ? h('span', { style: { font: '600 13px Archivo', color: bad ? RED : '#8a8578' } }, text) : null;
+const Field = ({ label, children, style }) => h('div', { style }, h('div', { style: S.label }, label), children);
+const Card = ({ title, chip, right, sub, children }) => h('div', { style: S.card },
+  h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: sub ? 6 : 18 } },
+    h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' } }, h('span', { style: S.title }, title), chip ? h('span', { style: S.chip }, chip) : null),
+    right || null),
+  sub ? h('div', { style: { ...S.sub, marginBottom: 20 } }, sub) : null,
+  children);
+const Toggle = ({ on, onClick, title }) => h('button', { onClick, title, type: 'button', style: { position: 'relative', flex: 'none', width: 52, height: 30, borderRadius: 999, border: 'none', cursor: 'pointer', padding: 0, background: on ? '#15171c' : '#cdcabf', transition: 'background .2s' } },
+  h('span', { style: { position: 'absolute', top: 3, left: 3, width: 24, height: 24, borderRadius: '50%', background: '#fff', boxShadow: '0 1px 2px rgba(0,0,0,.3)', transform: on ? 'translateX(22px)' : 'translateX(0px)', transition: 'transform .2s' } }));
+const Input = props => h('input', { ...props, style: { ...S.input, ...(props.style || {}) } });
+const Select = ({ value, onChange, options, placeholder, style }) => h('select', { value, onChange, style: { ...S.input, cursor: 'pointer', ...(style || {}) } },
+  placeholder ? h('option', { value: '' }, placeholder) : null,
+  options.map(o => h('option', { key: o.value, value: o.value }, o.label)));
+
+// Run an async action with a busy flag + message.
+function useAction() {
+  const [state, setState] = useState({ busy: false, msg: '', bad: false });
+  const run = useCallback((fn, okMsg) => {
+    setState({ busy: true, msg: 'Bezig…', bad: false });
+    return fn().then(r => { setState({ busy: false, msg: typeof okMsg === 'function' ? okMsg(r) : (okMsg || ''), bad: false }); return r; })
+      .catch(e => { setState({ busy: false, msg: e.message, bad: true }); });
+  }, []);
+  return [state, run, setState];
+}
+
+// ---- header ----------------------------------------------------------------
+function Header({ me, route, onLogout }) {
+  const link = (href, text, active) => h('a', { href, style: { textDecoration: 'none', font: '700 14px Archivo', color: active ? '#fff' : '#9aa3b2', padding: '8px 4px', borderBottom: active ? '2px solid #FF2E2E' : '2px solid transparent' } }, text);
+  return h('div', { style: { minHeight: 72, background: '#0b0d11', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16, padding: '12px 32px', position: 'sticky', top: 0, zIndex: 20 } },
+    h('div', { style: { display: 'flex', alignItems: 'center', gap: 16 } },
+      h('a', { href: '#boxes', style: { textDecoration: 'none' } },
+        h('div', { style: { transform: 'skewX(-9deg)', width: 'fit-content' } },
+          h('div', { style: { display: 'flex', alignItems: 'center', gap: 5 } },
+            h('span', { style: { font: '900 27px/.84 Archivo', letterSpacing: '-1.2px', color: '#fff' } }, 'Toernooi'),
+            h('span', { style: { display: 'inline-flex', alignItems: 'center', padding: '2px 7px 4px', background: '#FF2E2E' } }, h('span', { style: { font: '900 25px/.84 Archivo', letterSpacing: '-1.2px', color: '#fff' } }, 'TV'))),
+          h('div', { style: { height: 3, marginTop: 4, background: 'linear-gradient(90deg,#C8F24A,#3DA9FC)' } }))),
+      h('span', { style: { font: '700 11px ' + MONO, letterSpacing: 3, color: '#7d8696', padding: '4px 9px', border: '1px solid rgba(255,255,255,.14)', borderRadius: 6 } }, 'PORTAAL')),
+    me ? h('div', { style: { display: 'flex', alignItems: 'center', gap: 22, flexWrap: 'wrap' } },
+      link('#boxes', 'Schermen', route === 'boxes' || route.startsWith('box/') || route === 'koppelen'),
+      me.role === 'operator' ? link('#beheer', 'Clubs & gebruikers', route === 'beheer') : null,
+      me.role === 'operator' ? link('#leads', 'Aanvragen', route === 'leads') : null,
+      link('#wachtwoord', 'Wachtwoord', route === 'wachtwoord'),
+      h('span', { style: { font: '600 13px ' + MONO, color: '#7d8696' } }, me.username + (me.clubName ? ' · ' + me.clubName : me.role === 'operator' ? ' · beheerder' : '')),
+      h('button', { onClick: onLogout, style: { ...S.btn2, background: '#fff', color: '#0b0d11', border: 'none' } }, 'Uitloggen')) : null);
+}
+
+const Page = ({ children, width }) => h('div', { style: { padding: '36px 32px 90px' } }, h('div', { style: { maxWidth: width || 1300, margin: '0 auto', ...S.col } }, children));
+const PageTitle = ({ children, right }) => h('div', { style: { display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' } },
+  h('div', { style: { font: '900 34px Archivo', letterSpacing: '-1px' } }, children), right || null);
+
+// ---- login -----------------------------------------------------------------
+function Login({ onLogin }) {
+  const [u, setU] = useState(''), [p, setP] = useState('');
+  const [st, run] = useAction();
+  const submit = e => { e.preventDefault(); run(() => api('POST', '/api/login', { username: u.trim(), password: p }).then(onLogin)); };
+  return h(Page, { width: 440 },
+    h('form', { onSubmit: submit, style: { ...S.card, ...S.col, gap: 16, marginTop: 40 } },
+      h('div', null, h('div', { style: S.title }, 'Inloggen'), h('div', { style: { ...S.sub, marginTop: 6 } }, 'Beheer je Toernooi TV-schermen op afstand.')),
+      h(Input, { value: u, onChange: e => setU(e.target.value), placeholder: 'Gebruikersnaam', autoComplete: 'username', autoFocus: true }),
+      h(Input, { value: p, onChange: e => setP(e.target.value), placeholder: 'Wachtwoord', type: 'password', autoComplete: 'current-password' }),
+      h('div', { style: { display: 'flex', alignItems: 'center', gap: 14 } },
+        h('button', { type: 'submit', style: S.btn, disabled: st.busy }, 'Inloggen'), h(Msg, { text: st.busy ? '' : st.msg, bad: st.bad }))));
+}
+
+// ---- boxes overview --------------------------------------------------------
+function BoxCard({ b }) {
+  const a = authInfo(b.auth);
+  return h('a', { href: '#box/' + b.boxId, style: { ...S.card, padding: '22px 24px', textDecoration: 'none', display: 'flex', flexDirection: 'column', gap: 12 } },
+    h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 } },
+      h('span', { style: { display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 } },
+        h(Dot, { color: b.online ? '#37d67a' : '#b9b5aa', pulse: b.online }),
+        h('span', { style: { font: '800 18px Archivo', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, b.name || 'Scherm')),
+      h('span', { style: { font: '600 12px ' + MONO, color: b.online ? GREEN : '#8a8578', whiteSpace: 'nowrap' } }, b.online ? 'ONLINE' : 'offline · ' + ago(b.lastSeen))),
+    h('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '6px 16px', font: '600 13px ' + MONO, color: '#56524a' } },
+      h('span', null, 'v' + (b.version || '?')),
+      h('span', null, (b.ssid || 'geen wifi') + (b.ip ? ' · ' + b.ip : ''))),
+    h('div', { style: { display: 'flex', flexWrap: 'wrap', gap: '6px 16px' } },
+      h(Badge, { color: a.color }, 'TS: ' + a.label),
+      b.setupMode ? h(Badge, { color: AMBER }, 'Instelnetwerk actief') : null,
+      b.internet === false ? h(Badge, { color: RED }, 'Geen internet') : null,
+      b.synced ? null : h(Badge, { color: AMBER }, 'Wijzigingen onderweg')));
+}
+
+function Boxes({ me }) {
+  const [data, error] = usePoll('/api/boxes', 5000);
+  const boxes = (data && data.boxes) || [];
+  const groups = [];
+  boxes.forEach(b => { let g = groups.find(x => x.name === b.clubName); if (!g) groups.push(g = { name: b.clubName, boxes: [] }); g.boxes.push(b); });
+  const online = boxes.filter(b => b.online).length;
+  return h(Page, null,
+    h(PageTitle, { right: me.role === 'operator' ? h('a', { href: '#koppelen', style: { ...S.btn, textDecoration: 'none' } }, '+ Box koppelen') : null },
+      me.role === 'operator' ? 'Schermen' : 'Schermen · ' + (me.clubName || '')),
+    h('div', { style: S.sub }, data ? (boxes.length + ' ' + (boxes.length === 1 ? 'scherm' : 'schermen') + ' · ' + online + ' online') : (error || 'Laden…')),
+    data && !boxes.length ? h('div', { style: { ...S.card, ...S.sub } }, me.role === 'operator'
+      ? 'Nog geen schermen gekoppeld. Zet een box aan, lees de koppelcode van de tv en klik op “Box koppelen”.'
+      : 'Er zijn nog geen schermen aan jullie club gekoppeld.') : null,
+    groups.map(g => h('div', { key: g.name || '-', style: { ...S.col, gap: 12 } },
+      me.role === 'operator' ? h('div', { style: { font: '700 12px ' + MONO, letterSpacing: 2, color: '#8a8578', textTransform: 'uppercase', marginTop: 8 } }, g.name || 'Zonder club') : null,
+      h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(330px, 1fr))', gap: 16 } },
+        g.boxes.map(b => h(BoxCard, { key: b.boxId, b }))))));
+}
+
+function useClubs(enabled) {
+  const [data] = usePoll(enabled ? '/api/clubs' : '', 30000);
+  return ((data && data.clubs) || []).map(c => ({ value: String(c.id), label: c.name }));
+}
+
+function LinkBox() {
+  const clubs = useClubs(true);
+  const [code, setCode] = useState(''), [club, setClub] = useState(''), [name, setName] = useState('');
+  const [st, run] = useAction();
+  const submit = e => { e.preventDefault(); run(() => api('POST', '/api/boxes/link', { code, clubId: +club, name }).then(r => { location.hash = '#box/' + r.boxId; })); };
+  return h(Page, { width: 640 },
+    h(PageTitle, null, 'Box koppelen'),
+    h('form', { onSubmit: submit, style: { ...S.card, ...S.col, gap: 18 } },
+      h('div', { style: S.sub }, 'Een box die nog niet gekoppeld is toont onderaan het tv-beeld een “Portaal-koppelcode”. Het scherm moet aan staan en online zijn.'),
+      h(Field, { label: 'Koppelcode' }, h(Input, { value: code, onChange: e => setCode(e.target.value.toUpperCase()), placeholder: 'ABC-123', maxLength: 8, style: { font: '700 22px ' + MONO, letterSpacing: 4 } })),
+      h(Field, { label: 'Club' }, clubs.length ? h(Select, { value: club, onChange: e => setClub(e.target.value), options: clubs, placeholder: 'Kies een club…' })
+        : h('div', { style: S.sub }, 'Nog geen clubs — ', h('a', { href: '#beheer' }, 'maak eerst een club aan'), '.')),
+      h(Field, { label: 'Naam van het scherm' }, h(Input, { value: name, onChange: e => setName(e.target.value), placeholder: 'bijv. Kantine' })),
+      h('div', { style: { display: 'flex', alignItems: 'center', gap: 14 } },
+        h('button', { type: 'submit', style: S.btn, disabled: st.busy }, 'Koppelen'),
+        h('a', { href: '#boxes', style: S.btn2 }, 'Annuleren'),
+        h(Msg, { text: st.msg, bad: st.bad }))));
+}
+
+// ---- box detail ------------------------------------------------------------
+function StatusCard({ d }) {
+  const a = authInfo(d.auth);
+  const r = (label, value, color) => h('div', { style: S.row }, h('span', { style: S.rowLabel }, label), h('span', { style: { font: '600 14px ' + MONO, color: color || '#1b1a17', textAlign: 'right', wordBreak: 'break-all' } }, value));
+  return h(Card, { title: 'Status', right: h(Badge, { color: d.online ? GREEN : '#8a8578' }, d.online ? 'Online' : 'Offline') },
+    r('Laatst gezien', d.online ? 'zojuist' : ago(d.lastSeen)),
+    r('Softwareversie', d.version || '—'),
+    r('Wifi', d.ssid || 'geen'),
+    r('IP-adres', d.ip || '—'),
+    r('Internet', d.internet === false ? 'geen internet' : d.internet ? 'ok' : '—', d.internet === false ? RED : null),
+    r('Instelnetwerk', d.setupMode ? 'actief' + (d.hotspotName ? ' (' + d.hotspotName + ')' : '') : 'uit', d.setupMode ? AMBER : null),
+    r('Tournamentsoftware', a.label, a.color),
+    r('Instellingen', d.synced ? 'toegepast op scherm ✓' : 'wacht op scherm…', d.synced ? GREEN : AMBER),
+    h('div', { style: { ...S.row, borderBottom: 'none' } }, h('span', { style: S.rowLabel }, 'Box-ID'), h('span', { style: { font: '600 12px ' + MONO, color: '#8a8578', wordBreak: 'break-all', textAlign: 'right' } }, d.boxId)),
+    (d.warnings || []).map((w, i) => h('div', { key: i, style: { font: '600 13px Archivo', color: RED, marginTop: 6 } }, 'Scherm meldt: ' + w)));
+}
+
+function BoxAdminCard({ d, reload }) {
+  const clubs = useClubs(true);
+  const [name, setName] = useState(d.name), [club, setClub] = useState(String(d.clubId));
+  const [st, run] = useAction();
+  const save = () => run(() => api('POST', '/api/boxes/' + d.boxId, { name, clubId: +club }).then(reload), 'Opgeslagen ✓');
+  const unlink = () => { if (confirm('Box “' + d.name + '” ontkoppelen? Het scherm toont daarna weer een koppelcode en de lokale instellingenpagina werkt weer volledig.')) run(() => api('POST', '/api/boxes/' + d.boxId + '/unlink', {}).then(() => { location.hash = '#boxes'; })); };
+  return h(Card, { title: 'Box', chip: 'BEHEERDER' },
+    h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 18 } },
+      h(Field, { label: 'Naam' }, h(Input, { value: name, onChange: e => setName(e.target.value) })),
+      h(Field, { label: 'Club' }, h(Select, { value: club, onChange: e => setClub(e.target.value), options: clubs.length ? clubs : [{ value: String(d.clubId), label: d.clubName }] }))),
+    h('div', { style: { display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' } },
+      h('button', { onClick: save, style: S.btn, disabled: st.busy }, 'Opslaan'),
+      h('button', { onClick: unlink, style: { ...S.btn2, color: RED }, disabled: st.busy }, 'Ontkoppelen'),
+      h(Msg, { text: st.msg, bad: st.bad })));
+}
+
+function LogoField({ label, field, d, value, onChange, dark }) {
+  const [err, setErr] = useState('');
+  const info = d.logos[field] || {};
+  const pick = e => {
+    const f = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if (!f) return;
+    if (f.size > 5 * 1024 * 1024) { setErr('Logo te groot (max 5 MB)'); return; }
+    const r = new FileReader();
+    r.onload = () => { setErr(''); onChange(r.result); };
+    r.readAsDataURL(f);
+  };
+  const src = value !== undefined ? value : info.preview;
+  const has = value !== undefined ? !!value : info.set;
+  const upload = text => h('label', { style: has ? S.btn2 : { display: 'flex', alignItems: 'center', justifyContent: 'center', height: 84, border: '1.5px dashed rgba(0,0,0,.22)', borderRadius: 12, background: '#faf9f6', cursor: 'pointer', color: '#8a8578', font: '600 15px Archivo' } },
+    h('input', { type: 'file', accept: 'image/png,image/jpeg,image/svg+xml,image/webp,image/gif', onChange: pick, style: { display: 'none' } }), text);
+  return h(Field, { label },
+    has ? h('div', { style: { display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' } },
+      h('div', { style: { height: 72, minWidth: 120, padding: '10px 18px', border: '1px solid rgba(0,0,0,.12)', borderRadius: 12, background: dark === false ? '#fff' : '#0b0d11', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#dfe3ea', font: '600 13px Archivo' } },
+        src ? h('img', { src, alt: '', style: { height: 48, maxWidth: 200, objectFit: 'contain' } }) : 'Logo ingesteld'),
+      upload('Vervangen'),
+      h('button', { type: 'button', onClick: () => onChange(''), style: S.btn2 }, 'Verwijderen'))
+      : upload('+ Klik om logo te uploaden (PNG met transparantie)'),
+    err ? h('div', { style: { marginTop: 8 } }, h(Msg, { text: err, bad: true })) : null);
+}
+
+const Slider = ({ label, value, min, max, unit, onChange, dot }) => h('div', { style: { paddingTop: 16 } },
+  h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 } },
+    h('span', { style: { display: 'flex', alignItems: 'center', gap: 10, font: '700 14px Archivo', color: '#56524a' } }, dot ? h('span', { style: { width: 12, height: 12, borderRadius: '50%', background: dot } }) : null, label),
+    h('span', { style: { font: '700 16px ' + MONO } }, value + (unit || ''))),
+  h('input', { type: 'range', min, max, step: 1, value, onChange: e => onChange(+e.target.value) }));
+
+const ColorField = ({ label, value, onChange }) => h('div', { style: { display: 'flex', alignItems: 'center', gap: 14 } },
+  h('input', { type: 'color', value: /^#[0-9a-fA-F]{6}$/.test(value || '') ? value : '#000000', onChange: e => onChange(e.target.value), style: { width: 54, height: 44, border: '1px solid rgba(0,0,0,.14)', borderRadius: 10, background: 'none', cursor: 'pointer', padding: 2 } }),
+  h('div', { style: { display: 'flex', flexDirection: 'column' } }, h('span', { style: { font: '700 15px Archivo' } }, label), h('span', { style: { font: '600 13px ' + MONO, color: '#8a8578', textTransform: 'uppercase' } }, value)));
+
+function DisplayEditor({ d, reload }) {
+  // edits are kept locally (only changed fields are sent); polling never clobbers them
+  const [edits, setEdits] = useState({});
+  const [st, run] = useAction();
+  const dirty = Object.keys(edits).length > 0;
+  const v = k => (k in edits ? edits[k] : d.display[k]);
+  const set = (k, val) => setEdits(e => ({ ...e, [k]: val }));
+  const text = (k, label) => h(Field, { label }, h(Input, { value: v(k) == null ? '' : v(k), maxLength: 300, onChange: e => set(k, e.target.value) }));
+  const toggle = (k, label, dot) => h('div', { style: S.row },
+    h('span', { style: { display: 'flex', alignItems: 'center', gap: 12, font: '700 16px Archivo' } }, h('span', { style: { width: 12, height: 12, borderRadius: '50%', background: dot } }), label),
+    h(Toggle, { on: !!v(k), onClick: () => set(k, !v(k)) }));
+  const save = () => run(() => api('POST', '/api/boxes/' + d.boxId + '/display', { display: edits }).then(() => { setEdits({}); reload(); }),
+    'Opgeslagen — het scherm neemt het binnen ~30 s over' + (d.online ? '' : ' zodra het weer online is'));
+
+  return h(React.Fragment, null,
+    h(Card, { title: 'Club' },
+      h('div', { style: S.col }, text('clubName', 'Naam'), h(LogoField, { label: 'Clublogo', field: 'clubLogo', d, value: edits.clubLogo, onChange: x => set('clubLogo', x) }))),
+    h(Card, { title: 'Sponsor', sub: 'Wordt als volledige slide in de rotatie getoond.' },
+      h('div', { style: S.col },
+        h('div', { className: 'grid2', style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 } }, text('sponsorName', 'Naam'), text('sponsorTagline', 'Tagline')),
+        h(LogoField, { label: 'Sponsorlogo', field: 'sponsorLogo', d, value: edits.sponsorLogo, onChange: x => set('sponsorLogo', x) }))),
+    h(Card, { title: 'Marketingslide', chip: 'TOERNOOI TV', sub: 'Toont Toernooi TV in de rotatie — elke club die het scherm ziet, kan meer info vinden op de website.' },
+      h('div', { style: { ...S.col, gap: 16 } },
+        text('promoEyebrow', 'Label (klein, boven)'), text('promoMessage', 'Boodschap'),
+        h('div', { style: { display: 'grid', gridTemplateColumns: '1fr auto', gap: 16, alignItems: 'end' } },
+          text('promoCta', 'Call-to-action'), h(ColorField, { label: 'Kleur', value: v('promoColor'), onChange: x => set('promoColor', x) })))),
+    h(Card, { title: 'Schermrotatie' },
+      toggle('showTennis', "Tennis-pagina's", v('tennisColor')),
+      toggle('showPadel', "Padel-pagina's", v('padelColor')),
+      toggle('showSponsor', 'Sponsorslide', '#7da7d4'),
+      toggle('showResults', "Uitslagen-pagina's", '#c6a15b'),
+      toggle('showPromo', 'Marketingslide', v('promoColor')),
+      h(Slider, { label: 'Seconden per baan-pagina', value: v('secCourt'), min: 4, max: 20, unit: 's', onChange: x => set('secCourt', x) }),
+      h(Slider, { label: 'Seconden per sponsorslide', value: v('secSponsor'), min: 3, max: 15, unit: 's', onChange: x => set('secSponsor', x) }),
+      h(Slider, { label: 'Seconden per uitslagen-pagina', value: v('secResults'), min: 4, max: 20, unit: 's', onChange: x => set('secResults', x) }),
+      h(Slider, { label: 'Seconden per marketingslide', value: v('secPromo'), min: 4, max: 20, unit: 's', onChange: x => set('secPromo', x) })),
+    h(Card, { title: 'Sportkleuren' },
+      h('div', { style: { display: 'flex', gap: 32, flexWrap: 'wrap' } },
+        h(ColorField, { label: 'Tennis', value: v('tennisColor'), onChange: x => set('tennisColor', x) }),
+        h(ColorField, { label: 'Padel', value: v('padelColor'), onChange: x => set('padelColor', x) }))),
+    h(Card, { title: 'Banen & uitslagen', chip: 'VOORBEELD', sub: 'Aantallen voor het demovoorbeeld op de instellingenpagina van de box (zolang er geen live data is).' },
+      h(Slider, { label: 'Tennisbanen', value: v('tennisBanen'), min: 1, max: 12, dot: v('tennisColor'), onChange: x => set('tennisBanen', x) }),
+      h(Slider, { label: 'Padelbanen', value: v('padelBanen'), min: 1, max: 12, dot: v('padelColor'), onChange: x => set('padelBanen', x) }),
+      h(Slider, { label: 'Tennis-uitslagen', value: v('tennisResults'), min: 0, max: 45, dot: v('tennisColor'), onChange: x => set('tennisResults', x) }),
+      h(Slider, { label: 'Padel-uitslagen', value: v('padelResults'), min: 0, max: 45, dot: v('padelColor'), onChange: x => set('padelResults', x) })),
+    (dirty || st.msg) ? h('div', { style: { position: 'sticky', bottom: 20, zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap', background: '#0b0d11', color: '#dfe3ea', borderRadius: 14, padding: '14px 18px', boxShadow: '0 12px 34px rgba(0,0,0,.25)' } },
+      h('span', { style: { font: '700 14px Archivo', color: st.bad ? '#ff8a7a' : '#dfe3ea' } }, dirty ? (st.bad ? st.msg : 'Niet-opgeslagen wijzigingen in de weergave') : st.msg),
+      dirty ? h('div', { style: { display: 'flex', gap: 10 } },
+        h('button', { onClick: () => setEdits({}), style: { ...S.btn2, background: 'transparent', color: '#dfe3ea', borderColor: 'rgba(255,255,255,.25)' } }, 'Annuleren'),
+        h('button', { onClick: save, disabled: st.busy, style: { ...S.btn, background: '#fff', color: '#0b0d11' } }, st.busy ? 'Opslaan…' : 'Opslaan')) : null) : null);
+}
+
+function TournamentsCard({ d, reload }) {
+  const [rows, setRows] = useState(null); // null = not editing → show the box's list
+  const [user, setUser] = useState(''), [pass, setPass] = useState(''), [cookie, setCookie] = useState('');
+  const [st, run] = useAction();
+  const [cst, crun] = useAction();
+  const list = rows || d.tournaments;
+  const edit = fn => setRows(r => { const n = (r || d.tournaments).map(t => ({ ...t })); fn(n); return n; });
+  const saveList = next => run(() => api('POST', '/api/boxes/' + d.boxId + '/tournaments', { tournaments: next.filter(t => (t.code || '').trim()) }).then(() => { setRows(null); reload(); }),
+    'Opgeslagen — het scherm neemt het binnen ~30 s over');
+  const login = e => { e.preventDefault(); crun(() => api('POST', '/api/boxes/' + d.boxId + '/login', { user: user.trim(), password: pass }).then(() => { setPass(''); reload(); }), 'Verstuurd naar het scherm…'); };
+  const logout = () => crun(() => api('POST', '/api/boxes/' + d.boxId + '/login', { clear: true }).then(reload), 'Verstuurd naar het scherm…');
+  const sendCookie = () => crun(() => api('POST', '/api/boxes/' + d.boxId + '/cookie', { cookie }).then(() => { setCookie(''); reload(); }), 'Verstuurd naar het scherm…');
+  const clearCookie = () => crun(() => api('POST', '/api/boxes/' + d.boxId + '/cookie', { clear: true }).then(reload), 'Verstuurd naar het scherm…');
+  const a = authInfo(d.auth);
+  const lastCred = (d.commands || []).find(c => CRED_KINDS.indexOf(c.kind) >= 0);
+  const credState = lastCred ? cmdState(lastCred, d.online) : null;
+  const added = new Set(list.map(t => t.code));
+  const avail = (d.myTournaments || []).filter(t => !added.has(t.code)).map(t => ({ value: t.code, label: (t.name || t.code) + (t.startDate ? '  ·  ' + t.startDate.slice(0, 4) : '') }));
+  const pickT = e => { const t = (d.myTournaments || []).find(x => x.code === e.target.value); if (t) saveList([...list, { code: t.code, label: (t.name || 'Toernooi').slice(0, 40), enabled: true }]); };
+  const loggedIn = d.login && d.login.stored;
+
+  return h(Card, { title: 'Verbinding & toernooien', chip: 'TOERNOOI-API', sub: 'Log in met het Tournamentsoftware-account van de club; het scherm haalt zelf de verbinding op en vernieuwt die automatisch. Het wachtwoord gaat alleen naar het scherm en wordt hier nooit getoond.' },
+    h('div', { style: { marginBottom: 22 } },
+      h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, gap: 10, flexWrap: 'wrap' } },
+        h('span', { style: { ...S.label, marginBottom: 0 } }, 'Tournamentsoftware-account'),
+        h(Badge, { color: a.color }, a.label + (d.cookieHint && d.cookieSet ? ' (' + d.cookieHint + ')' : ''))),
+      loggedIn ? h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, padding: '13px 15px', border: '1px solid rgba(46,157,91,.35)', borderRadius: 10, background: '#f1f8f3' } },
+        h('span', { style: { font: '700 15px Archivo' } }, 'Ingelogd als ' + (d.login.name || d.login.user)),
+        h('button', { onClick: logout, style: S.btn2, disabled: cst.busy }, 'Uitloggen'))
+        : h('form', { onSubmit: login, style: { ...S.col, gap: 10 } },
+          h(Input, { value: user, onChange: e => setUser(e.target.value), placeholder: 'Gebruikersnaam', autoComplete: 'off' }),
+          h(Input, { value: pass, onChange: e => setPass(e.target.value), placeholder: 'Wachtwoord', type: 'password', autoComplete: 'new-password' }),
+          h('div', null, h('button', { type: 'submit', style: S.btn, disabled: cst.busy || !user.trim() || !pass }, 'Login op Tournamentsoftware'))),
+      h('div', { style: { marginTop: 10, display: 'flex', flexDirection: 'column', gap: 4 } },
+        cst.msg && cst.bad ? h(Msg, { text: cst.msg, bad: true }) : null,
+        credState ? h('span', { style: { font: '600 13px Archivo', color: credState.color } }, CMD_LABEL[lastCred.kind] + ': ' + credState.label) : null)),
+    h('details', { style: { marginBottom: 22 } },
+      h('summary', { style: { cursor: 'pointer', ...S.label, marginBottom: 0 } }, 'Handmatige sessiecookie (geavanceerd)'),
+      h('div', { style: { marginTop: 12, display: 'flex', gap: 10, flexWrap: 'wrap' } },
+        h(Input, { type: 'password', value: cookie, onChange: e => setCookie(e.target.value), placeholder: 'Cookie: .AspNetCore.Cookies=…', autoComplete: 'off', style: { flex: 1, minWidth: 240, font: '600 14px ' + MONO } }),
+        h('button', { onClick: sendCookie, style: S.btn, disabled: cst.busy || !cookie.trim() }, 'Instellen'),
+        d.cookieSet ? h('button', { onClick: clearCookie, style: S.btn2, disabled: cst.busy }, 'Cookie wissen') : null)),
+    h('div', { style: { ...S.label, marginBottom: 10 } }, 'Toernooien'),
+    list.length ? h('div', { style: { ...S.col, gap: 12, marginBottom: 14 } },
+      list.map((t, i) => h('div', { key: i, style: { display: 'flex', alignItems: 'center', gap: 10 } },
+        h(Input, { value: t.label || '', onChange: e => edit(n => { n[i].label = e.target.value; }), placeholder: 'Naam', style: { width: 170, flex: 'none', padding: '11px 13px', font: '600 14px Archivo' } }),
+        h(Input, { value: t.code || '', onChange: e => edit(n => { n[i].code = e.target.value; }), placeholder: 'Toernooicode (UUID)', style: { flex: 1, minWidth: 0, padding: '11px 13px', font: '600 13px ' + MONO } }),
+        h(Toggle, { on: t.enabled !== false, title: 'In rotatie tonen', onClick: () => edit(n => { n[i].enabled = t.enabled === false; }) }),
+        h('button', { onClick: () => edit(n => { n.splice(i, 1); }), title: 'Verwijderen', style: { flex: 'none', width: 34, height: 34, border: '1px solid rgba(0,0,0,.14)', background: '#fff', cursor: 'pointer', borderRadius: 9, font: '700 16px Archivo', color: RED } }, '×'))))
+      : h('div', { style: { ...S.sub, marginBottom: 14 } }, 'Nog geen toernooien.'),
+    h(Select, { value: '', onChange: pickT, options: avail, placeholder: avail.length ? '+ Toernooi toevoegen…' : (loggedIn || d.cookieSet ? 'Geen (andere) toernooien gevonden voor dit account' : 'Log eerst in om toernooien te kiezen'),
+      style: { border: '1.5px dashed rgba(0,0,0,.22)', font: '700 14px Archivo', color: '#56524a' } }),
+    h('div', { style: { display: 'flex', justifyContent: 'flex-end', marginTop: 8 } },
+      h('button', { onClick: () => edit(n => { n.push({ code: '', label: 'Toernooi ' + (n.length + 1), enabled: true }); }), style: { border: 'none', background: 'none', cursor: 'pointer', padding: 4, font: '600 12px Archivo', color: '#8a8578', textDecoration: 'underline' } }, 'handmatig met code')),
+    h('div', { style: { display: 'flex', alignItems: 'center', gap: 14, marginTop: 14, flexWrap: 'wrap' } },
+      h('button', { onClick: () => saveList(list), style: { ...S.btn, opacity: rows ? 1 : 0.5 }, disabled: st.busy || !rows }, 'Toernooien opslaan'),
+      rows ? h('button', { onClick: () => setRows(null), style: S.btn2 }, 'Annuleren') : null,
+      h(Msg, { text: st.msg, bad: st.bad })));
+}
+
+function ActionsCard({ d, reload }) {
+  const [st, run] = useAction();
+  const send = (kind, question) => { if (question && !confirm(question)) return; run(() => api('POST', '/api/boxes/' + d.boxId + '/command', { kind }).then(reload), d.online ? 'Opdracht verstuurd' : 'In wachtrij — wordt uitgevoerd zodra het scherm online is'); };
+  const u = d.update;
+  const bad = u && (u.status === 'failed' || u.status === 'rolled-back');
+  return h(Card, { title: 'Acties', chip: 'BEHEERDER' },
+    h('div', { style: { display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 16 } },
+      h('button', { onClick: () => send('restart', 'De app (server + tv-browser) op dit scherm herstarten?'), style: S.btn2, disabled: st.busy }, 'App herstarten'),
+      h('button', { onClick: () => send('reboot', 'De hele box opnieuw opstarten? Het scherm is ongeveer een minuut zwart.'), style: S.btn2, disabled: st.busy }, 'Box herstarten'),
+      h('button', { onClick: () => send('update', 'Deze box bijwerken naar de nieuwste release?'), style: S.btn2, disabled: st.busy }, 'Nu bijwerken'),
+      h('button', { onClick: () => send('logs'), style: S.btn2, disabled: st.busy }, 'Logs opvragen')),
+    h('div', { style: S.row }, h('span', { style: S.rowLabel }, 'Versie'), h('span', { style: { font: '700 16px ' + MONO } }, d.version || '—')),
+    h('div', { style: { ...S.row, borderBottom: 'none', alignItems: 'baseline' } }, h('span', { style: S.rowLabel }, 'Laatste update'), h('span', { style: { font: '600 14px Archivo', color: bad ? RED : '#8a8578', textAlign: 'right' } }, updateLabel(u))),
+    h(Msg, { text: st.msg, bad: st.bad }));
+}
+
+function HistoryCard({ d }) {
+  const cmds = d.commands || [];
+  return h(Card, { title: 'Opdrachten', sub: cmds.length ? '' : 'Nog geen opdrachten verstuurd.' },
+    cmds.map(c => {
+      const s = cmdState(c, d.online);
+      return h('div', { key: c.id, style: { ...S.row, alignItems: 'baseline' } },
+        h('span', { style: { display: 'flex', flexDirection: 'column', gap: 2 } },
+          h('span', { style: { font: '700 14px Archivo' } }, CMD_LABEL[c.kind] || c.kind),
+          h('span', { style: { font: '600 12px ' + MONO, color: '#8a8578' } }, when(c.created))),
+        h('span', { style: { font: '600 13px Archivo', color: s.color, textAlign: 'right', maxWidth: '65%', wordBreak: 'break-word' } }, s.label));
+    }));
+}
+
+function LogsCard({ d }) {
+  const [logs, setLogs] = useState(null);
+  const [err, setErr] = useState('');
+  useEffect(() => {
+    if (!d.logsAt) return;
+    api('GET', '/api/boxes/' + d.boxId + '/logs').then(r => { setLogs(r.logs); setErr(''); }).catch(e => setErr(e.message));
+  }, [d.boxId, d.logsAt]);
+  const pre = useRef(null);
+  useEffect(() => { if (pre.current) pre.current.scrollTop = pre.current.scrollHeight; }, [logs]);
+  return h(Card, { title: 'Logs', chip: 'BEHEERDER', right: d.logsAt ? h('span', { style: { font: '600 12px ' + MONO, color: '#8a8578' } }, 'opgehaald ' + ago(d.logsAt)) : null },
+    err ? h(Msg, { text: err, bad: true }) : null,
+    d.logsAt ? h('pre', { ref: pre, style: { background: '#0b0d11', color: '#cdd3dd', font: '500 12px/1.55 ' + MONO, padding: '16px 18px', borderRadius: 12, maxHeight: 460, overflow: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-all' } }, logs == null ? 'Laden…' : (logs || '(leeg)'))
+      : h('div', { style: S.sub }, 'Nog geen logs opgevraagd — klik op “Logs opvragen” bij Acties.'));
+}
+
+function BoxDetail({ me, id }) {
+  const [d, error, reload] = usePoll('/api/boxes/' + encodeURIComponent(id), 5000);
+  const operator = me.role === 'operator';
+  if (!d) return h(Page, null, h('a', { href: '#boxes', style: { ...S.sub, textDecoration: 'none' } }, '← Schermen'), h('div', { style: S.sub }, error || 'Laden…'));
+  return h(Page, null,
+    h('a', { href: '#boxes', style: { ...S.sub, textDecoration: 'none' } }, '← Schermen'),
+    h(PageTitle, { right: h(Badge, { color: d.online ? GREEN : '#8a8578' }, d.online ? 'Online' : 'Offline · laatst gezien ' + ago(d.lastSeen)) },
+      d.name, h('span', { style: { font: '600 16px Archivo', color: '#8a8578', marginLeft: 12, letterSpacing: 0 } }, d.clubName)),
+    error ? h(Msg, { text: 'Verversen mislukt: ' + error, bad: true }) : null,
+    h('div', { className: 'grid2', style: { display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(340px,440px)', gap: 32, alignItems: 'start' } },
+      h('div', { style: S.col },
+        h(TournamentsCard, { d, reload }),
+        h(DisplayEditor, { d, reload })),
+      h('div', { style: S.col },
+        h(StatusCard, { d }),
+        operator ? h(ActionsCard, { d, reload }) : null,
+        h(HistoryCard, { d }),
+        operator ? h(LogsCard, { d }) : null,
+        operator ? h(BoxAdminCard, { key: d.boxId + d.clubId + d.name, d, reload }) : null)));
+}
+
+// ---- clubs & users (operator) ---------------------------------------------
+function Manage() {
+  const [clubsData, , reloadClubs] = usePoll('/api/clubs', 15000);
+  const [usersData, , reloadUsers] = usePoll('/api/users', 15000);
+  const reload = () => { reloadClubs(); reloadUsers(); };
+  const clubs = (clubsData && clubsData.clubs) || [];
+  const users = (usersData && usersData.users) || [];
+  const [clubName, setClubName] = useState('');
+  const [nu, setNu] = useState({ username: '', password: '', clubId: '' });
+  const [cst, crun] = useAction();
+  const [ust, urun] = useAction();
+  const addClub = e => { e.preventDefault(); crun(() => api('POST', '/api/clubs', { name: clubName }).then(() => { setClubName(''); reload(); }), 'Club toegevoegd ✓'); };
+  const delClub = c => { if (confirm('Club “' + c.name + '” verwijderen?')) crun(() => api('DELETE', '/api/clubs/' + c.id).then(reload), 'Club verwijderd'); };
+  const addUser = e => { e.preventDefault(); urun(() => api('POST', '/api/users', { ...nu, clubId: +nu.clubId }).then(() => { setNu({ username: '', password: '', clubId: '' }); reload(); }), 'Gebruiker aangemaakt ✓'); };
+  const delUser = u => { if (confirm('Gebruiker “' + u.username + '” verwijderen?')) urun(() => api('DELETE', '/api/users/' + u.id).then(reload), 'Gebruiker verwijderd'); };
+  const setPw = u => { const pw = prompt('Nieuw wachtwoord voor ' + u.username + ' (minstens 8 tekens):'); if (pw) urun(() => api('POST', '/api/users/' + u.id + '/password', { password: pw }), 'Wachtwoord ingesteld — de gebruiker is overal uitgelogd'); };
+  const clubOpts = clubs.map(c => ({ value: String(c.id), label: c.name }));
+  return h(Page, { width: 1000 },
+    h(PageTitle, null, 'Clubs & gebruikers'),
+    h(Card, { title: 'Clubs', sub: 'Elke box en elke clubgebruiker hoort bij één club. Een club kan pas weg als er geen boxen of gebruikers meer aan hangen.' },
+      clubs.map(c => h('div', { key: c.id, style: S.row },
+        h('span', { style: { font: '700 15px Archivo' } }, c.name),
+        h('span', { style: { display: 'flex', alignItems: 'center', gap: 16 } },
+          h('span', { style: { font: '600 13px ' + MONO, color: '#8a8578' } }, c.boxes + ' box' + (c.boxes === 1 ? '' : 'en') + ' · ' + c.users + ' gebruiker' + (c.users === 1 ? '' : 's')),
+          h('button', { onClick: () => delClub(c), disabled: c.boxes + c.users > 0, style: { ...S.btn2, color: RED, opacity: c.boxes + c.users > 0 ? 0.4 : 1 } }, 'Verwijderen')))),
+      h('form', { onSubmit: addClub, style: { display: 'flex', gap: 10, marginTop: 18, flexWrap: 'wrap', alignItems: 'center' } },
+        h(Input, { value: clubName, onChange: e => setClubName(e.target.value), placeholder: 'Naam van de club', style: { flex: 1, minWidth: 220 } }),
+        h('button', { type: 'submit', style: S.btn, disabled: cst.busy || !clubName.trim() }, 'Club toevoegen'),
+        h(Msg, { text: cst.msg, bad: cst.bad }))),
+    h(Card, { title: 'Gebruikers', sub: 'Clubgebruikers zien alleen de schermen van hun eigen club en kunnen daar de weergave, toernooien en Tournamentsoftware-login aanpassen.' },
+      users.map(u => h('div', { key: u.id, style: S.row },
+        h('span', { style: { display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' } },
+          h('span', { style: { font: '700 15px Archivo' } }, u.username),
+          h('span', { style: S.chip }, u.role === 'operator' ? 'BEHEERDER' : (u.clubName || '').toUpperCase())),
+        u.role === 'club' ? h('span', { style: { display: 'flex', gap: 8 } },
+          h('button', { onClick: () => setPw(u), style: S.btn2 }, 'Nieuw wachtwoord'),
+          h('button', { onClick: () => delUser(u), style: { ...S.btn2, color: RED } }, 'Verwijderen')) : null)),
+      h('form', { onSubmit: addUser, className: 'grid2', style: { display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: 10, marginTop: 18, alignItems: 'center' } },
+        h(Input, { value: nu.username, onChange: e => setNu({ ...nu, username: e.target.value }), placeholder: 'Gebruikersnaam', autoComplete: 'off' }),
+        h(Input, { value: nu.password, onChange: e => setNu({ ...nu, password: e.target.value }), placeholder: 'Wachtwoord (min. 8)', type: 'password', autoComplete: 'new-password' }),
+        h(Select, { value: nu.clubId, onChange: e => setNu({ ...nu, clubId: e.target.value }), options: clubOpts, placeholder: 'Club…' }),
+        h('button', { type: 'submit', style: S.btn, disabled: ust.busy || !nu.username.trim() || !nu.password || !nu.clubId }, 'Aanmaken')),
+      h('div', { style: { marginTop: 10 } }, h(Msg, { text: ust.msg, bad: ust.bad }))));
+}
+
+// ---- demo requests from the website (operator) -----------------------------
+function Leads() {
+  const [data, error] = usePoll('/api/leads', 15000);
+  const leads = (data && data.leads) || [];
+  const mail = l => l.emailed === true ? h(Badge, { color: GREEN }, 'mail verstuurd')
+    : l.emailed === false ? h(Badge, { color: RED }, 'mail mislukt') : h(Badge, { color: GREY }, 'geen mail verstuurd');
+  const line = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' };
+  return h(Page, { width: 1000 },
+    h(PageTitle, null, 'Demo-aanvragen'),
+    h('div', { style: S.sub }, data ? leads.length + ' ' + (leads.length === 1 ? 'aanvraag' : 'aanvragen') + ' via het formulier op de website' : (error || 'Laden…')),
+    data && !leads.length ? h('div', { style: { ...S.card, ...S.sub } }, 'Nog geen aanvragen — de website staat op /') : null,
+    leads.map(l => h('div', { key: l.id, style: { ...S.card, padding: '22px 24px', display: 'flex', flexDirection: 'column', gap: 10 } },
+      h('div', { style: line },
+        h('span', { style: { display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' } },
+          h('span', { style: { font: '800 18px Archivo' } }, l.name),
+          l.club ? h('span', { style: S.chip }, l.club.toUpperCase()) : null),
+        h('span', { style: { font: '600 12px ' + MONO, color: '#8a8578' } }, when(l.created))),
+      h('div', { style: line },
+        h('a', { href: 'mailto:' + l.email, style: { font: '600 14px ' + MONO, wordBreak: 'break-all' } }, l.email),
+        mail(l)),
+      l.message ? h('div', { style: { ...S.sub, color: '#56524a', whiteSpace: 'pre-wrap', wordBreak: 'break-word' } }, l.message) : null)));
+}
+
+function Password() {
+  const [f, setF] = useState({ old: '', new1: '', new2: '' });
+  const [st, run, setSt] = useAction();
+  const submit = e => {
+    e.preventDefault();
+    if (f.new1 !== f.new2) { setSt({ busy: false, msg: 'De nieuwe wachtwoorden komen niet overeen', bad: true }); return; }
+    run(() => api('POST', '/api/password', { old: f.old, new: f.new1 }).then(() => setF({ old: '', new1: '', new2: '' })), 'Wachtwoord gewijzigd ✓ — andere sessies zijn uitgelogd');
+  };
+  const inp = (k, ph, ac) => h(Input, { type: 'password', value: f[k], onChange: e => setF({ ...f, [k]: e.target.value }), placeholder: ph, autoComplete: ac });
+  return h(Page, { width: 520 },
+    h(PageTitle, null, 'Wachtwoord wijzigen'),
+    h('form', { onSubmit: submit, style: { ...S.card, ...S.col, gap: 14 } },
+      inp('old', 'Huidig wachtwoord', 'current-password'), inp('new1', 'Nieuw wachtwoord (minstens 8 tekens)', 'new-password'), inp('new2', 'Nieuw wachtwoord herhalen', 'new-password'),
+      h('div', { style: { display: 'flex', alignItems: 'center', gap: 14 } }, h('button', { type: 'submit', style: S.btn, disabled: st.busy }, 'Opslaan'), h(Msg, { text: st.msg, bad: st.bad }))));
+}
+
+// ---- app -------------------------------------------------------------------
+function App() {
+  const [me, setMe] = useState(undefined); // undefined = checking, null = logged out
+  const route = useHash();
+  useEffect(() => {
+    onUnauthorized = () => setMe(null);
+    api('GET', '/api/me').then(setMe).catch(() => setMe(null));
+  }, []);
+  const logout = () => api('POST', '/api/logout', {}).catch(() => {}).then(() => { setMe(null); location.hash = ''; });
+  let body;
+  if (me === undefined) body = h(Page, null, h('div', { style: S.sub }, 'Laden…'));
+  else if (!me) body = h(Login, { onLogin: m => { setMe(m); if (!route || route === 'login') location.hash = '#boxes'; } });
+  else if (route.startsWith('box/')) body = h(BoxDetail, { key: route, me, id: decodeURIComponent(route.slice(4)) });
+  else if (route === 'koppelen' && me.role === 'operator') body = h(LinkBox);
+  else if (route === 'beheer' && me.role === 'operator') body = h(Manage);
+  else if (route === 'leads' && me.role === 'operator') body = h(Leads);
+  else if (route === 'wachtwoord') body = h(Password);
+  else body = h(Boxes, { me });
+  return h('div', { style: { minHeight: '100vh' } }, h(Header, { me, route, onLogout: logout }), body);
+}
+
+const root = document.getElementById('root');
+if (ReactDOM.createRoot) ReactDOM.createRoot(root).render(h(App)); else ReactDOM.render(h(App), root);
+})();
+</script>
+</body>
+</html>

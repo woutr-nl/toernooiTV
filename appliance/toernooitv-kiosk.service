@@ -1,3 +1,4 @@
+# template — placeholders filled in by install-kiosk.sh; do not `systemctl link` this file directly
 [Unit]
 Description=Toernooi TV kiosk (cage + Chromium fullscreen on HDMI)
 After=toernooitv-server.service systemd-user-sessions.service getty@tty1.service
@@ -5,7 +6,7 @@ Wants=toernooitv-server.service
 Conflicts=getty@tty1.service
 
 [Service]
-User=woutr
+User=__USER__
 PAMName=login
 TTYPath=/dev/tty1
 StandardInput=tty
@@ -13,10 +14,10 @@ StandardOutput=journal
 StandardError=journal
 UtmpIdentifier=tty1
 UtmpMode=user
-Environment=XDG_RUNTIME_DIR=/run/user/1000
+Environment=XDG_RUNTIME_DIR=/run/user/__UID__
 Environment=XDG_SEAT=seat0
 Environment=WLR_LIBINPUT_NO_DEVICES=1
-ExecStart=/usr/bin/cage -- /home/woutr/toernooi-tv/appliance/kiosk.sh
+ExecStart=/usr/bin/cage -- __APP__/appliance/kiosk.sh
 Restart=always
 RestartSec=3
 

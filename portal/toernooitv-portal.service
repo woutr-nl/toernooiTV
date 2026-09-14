@@ -1,0 +1,21 @@
+# Toernooi TV portaal (hosted). Copy to /etc/systemd/system/, replace the user and
+# checkout path, then: systemctl daemon-reload && systemctl enable --now toernooitv-portal
+# Put a TLS reverse proxy (Caddy/nginx) in front — the portal listens on 127.0.0.1:8771.
+[Unit]
+Description=Toernooi TV portaal (remote management)
+After=network.target
+
+[Service]
+Type=simple
+User=toernooitv
+WorkingDirectory=/opt/toernooi-tv
+Environment=PORTAL_HOST=127.0.0.1
+Environment=PORTAL_PORT=8771
+# PORTAL_SMTP_* / PORTAL_LEAD_* (demo-request mail) live here, chmod 600 — see README
+EnvironmentFile=-/etc/toernooitv-portal.env
+ExecStart=/usr/bin/python3 /opt/toernooi-tv/portal/portal.py
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

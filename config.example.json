@@ -3,5 +3,32 @@
   "tournaments": [
     { "code": "<tournament-uuid>", "label": "Voorbeeld", "enabled": true }
   ],
-  "login": { "user": "", "pass": "", "name": "" }
+  "login": { "user": "", "pass": "", "name": "" },
+  "portal": { "secret": "", "linked": false, "rev": 0, "name": "", "lastCmdId": 0, "pending": null },
+  "display": {
+    "clubName": "Toernooi TV",
+    "clubLogo": "",
+    "sponsorName": "Jouw Sponsor",
+    "sponsorTagline": "Officiële partner van dit toernooi",
+    "sponsorLogo": "",
+    "showTennis": true,
+    "showPadel": true,
+    "showSponsor": true,
+    "showResults": true,
+    "showPromo": true,
+    "secCourt": 8,
+    "secSponsor": 6,
+    "secResults": 9,
+    "secPromo": 7,
+    "promoEyebrow": "OOK OP JULLIE CLUB?",
+    "promoMessage": "Live banen, uitslagen en je sponsors op één scherm in de kantine.",
+    "promoCta": "toernooitv.nl",
+    "promoColor": "#ff5a3c",
+    "tennisColor": "#c8f24a",
+    "padelColor": "#3da9fc",
+    "tennisBanen": 6,
+    "padelBanen": 4,
+    "tennisResults": 14,
+    "padelResults": 10
+  }
 }

@@ -38,9 +38,10 @@
           <sc-for list="{{ f.courts }}" as="court" hint-placeholder-count="4">
             <div style="position:relative; background:#14171d; border:1px solid rgba(255,255,255,.08); border-radius:20px; padding:0 44px; display:flex; align-items:stretch; gap:40px; overflow:hidden; grid-column:{{ court.gridSpan }}; --accent:{{ court.accent }};">
               <div style="position:absolute; top:0; left:0; bottom:0; width:7px; background:var(--accent);"></div>
-              <div style="display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center; padding:30px 0; min-width:188px;">
+              <div style="display:flex; flex-direction:column; justify-content:center; align-items:flex-start; padding:30px 0; min-width:188px;">
                 <span style="font:700 20px Archivo; letter-spacing:3px; color:#7d8696;">{{ court.base }}</span>
                 <span style="font:900 112px Archivo; line-height:.78; color:#fff;">{{ court.num }}</span>
+                <span style="margin-top:18px; padding:7px 16px; border-radius:999px; background:var(--accent); color:#0b0d11; font:800 16px Archivo; letter-spacing:1px;">{{ court.sportLabel }}</span>
               </div>
               <div style="width:1px; background:rgba(255,255,255,.08); margin:38px 0;"></div>
               <div style="flex:1; display:flex; flex-direction:column; justify-content:center; padding:30px 0; gap:16px; min-width:0;">
@@ -121,6 +122,30 @@
         </div>
       </sc-if>
 
+      <sc-if value="{{ f.isPromo }}" hint-placeholder-val="{{ true }}">
+        <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:0 120px;">
+          <div style="display:inline-flex; align-items:center; gap:15px; padding:13px 30px; border-radius:999px; background:var(--accent); margin-bottom:40px;">
+            <span style="width:12px; height:12px; border-radius:50%; background:#0b0d11;"></span>
+            <span style="font:800 21px Archivo; letter-spacing:4px; color:#0b0d11;">{{ f.eyebrow }}</span>
+          </div>
+          <div style="margin-bottom:36px; transform:skewX(-9deg);">
+            <div style="display:flex; align-items:center; gap:18px;">
+              <span style="font:900 128px Archivo; letter-spacing:-5px; line-height:.84; color:#fff;">Toernooi</span>
+              <span style="display:inline-flex; align-items:center; padding:8px 26px 14px; background:#ff2e2e;"><span style="font:900 118px Archivo; letter-spacing:-5px; line-height:.84; color:#fff;">TV</span></span>
+            </div>
+            <div style="height:13px; margin-top:22px; background:linear-gradient(90deg,#c8f24a,#3da9fc);"></div>
+          </div>
+          <div style="font:500 40px Archivo; color:#aeb6c4; max-width:1180px; line-height:1.3; text-wrap:balance;">{{ f.message }}</div>
+          <div style="display:flex; flex-direction:column; align-items:center; gap:22px; margin-top:64px;">
+            <span style="font:600 28px Archivo; color:#8b93a3;">Meer informatie &amp; tarieven op</span>
+            <div style="display:inline-flex; align-items:center; gap:18px; padding:20px 46px; border-radius:999px; background:var(--accent);">
+              <span style="width:15px; height:15px; border-radius:50%; background:#0b0d11;"></span>
+              <span style="font:800 48px Archivo; color:#0b0d11; letter-spacing:.4px;">{{ f.cta }}</span>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+
       <sc-if value="{{ f.isEmpty }}" hint-placeholder-val="{{ true }}">
         <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:24px;">
           <span style="width:20px; height:20px; border-radius:50%; background:#3a3f48;"></span>
@@ -139,13 +164,15 @@
       <sc-if value="{{ clubNoLogo }}" hint-placeholder-val="{{ true }}">
         <div style="width:48px; height:48px; border-radius:12px; background:#fff; display:flex; align-items:center; justify-content:center; font:900 22px Archivo; color:#0b0d11;">{{ clubInitials }}</div>
       </sc-if>
-      <div style="display:flex; flex-direction:column; line-height:1.1; gap:5px;">
+      <div style="display:flex; flex-direction:column; line-height:1.1;">
         <span style="font:800 26px Archivo; color:#fff; letter-spacing:.3px;">{{ clubName }}</span>
         <!-- Toernooi TV logo — compacte 'powered by' lockup (lean -9°, rode TV-plaat) -->
-        <span style="display:inline-flex; align-items:center; gap:3px; transform:skewX(-9deg); width:fit-content;">
-          <span style="font:900 14px Archivo; letter-spacing:-.5px; color:#aeb6c2;">Toernooi</span>
-          <span style="display:inline-flex; align-items:center; padding:0 5px 2px; background:#FF2E2E;"><span style="font:900 13px Archivo; letter-spacing:-.5px; color:#fff;">TV</span></span>
-        </span>
+        <div style="margin-top:6px; transform:skewX(-9deg); width:fit-content;">
+          <div style="display:flex; align-items:center; gap:4px;">
+            <span style="font:900 16px Archivo; letter-spacing:-.5px; color:#fff;">Toernooi</span>
+            <span style="display:inline-flex; align-items:center; padding:0 5px 1px; background:#ff2e2e;"><span style="font:900 14px Archivo; letter-spacing:-.5px; color:#fff;">TV</span></span>
+          </div>
+        </div>
       </div>
     </div>
     <div style="display:flex; align-items:center; gap:22px;">

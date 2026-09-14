@@ -1,18 +1,19 @@
+# template — placeholders filled in by install-kiosk.sh; do not `systemctl link` this file directly
 [Unit]
 Description=Toernooi TV server (static files + tp-api proxy)
 After=network.target
 
 [Service]
 Type=simple
-User=woutr
-WorkingDirectory=/home/woutr/toernooi-tv
+User=__USER__
+WorkingDirectory=__APP__
 Environment=HOST=0.0.0.0
 Environment=PORT=8770
 # also listen on 80 so the box is reachable at toernooitv.local/beheer (no :port).
 # Binding a privileged port as a non-root user needs this capability.
 Environment=EXTRA_PORT=80
 AmbientCapabilities=CAP_NET_BIND_SERVICE
-ExecStart=/usr/bin/python3 /home/woutr/toernooi-tv/server.py
+ExecStart=/usr/bin/python3 __APP__/server.py
 Restart=always
 RestartSec=2
 
