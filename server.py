@@ -23,7 +23,10 @@ Open:  http://127.0.0.1:8770/Toernooi%20TV.dc.html
 Everything else is configured from the Settings (Instellingen) screen.
 """
 
+import base64
+import binascii
 import datetime
+import glob
 import http.cookiejar
 import json
 import os
@@ -40,6 +43,45 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 CONFIG_PATH = os.path.join(HERE, "config.json")
+UPLOADS_DIR = os.path.join(HERE, "uploads")  # uploaded club/sponsor logos (served as /uploads/…)
+
+# Display settings (club, sponsor, marketing slide, rotation, colours) — stored
+# on the box in config.json under "display" so every screen/device sees the same.
+# Field names are a contract (the later remote portal reads/writes them).
+DISPLAY_DEFAULTS = {
+    "clubName": "Toernooi TV",
+    "clubLogo": "",
+    "sponsorName": "Jouw Sponsor",
+    "sponsorTagline": "Officiële partner van dit toernooi",
+    "sponsorLogo": "",
+    "showTennis": True,
+    "showPadel": True,
+    "showSponsor": True,
+    "showResults": True,
+    "showPromo": True,
+    "secCourt": 8,
+    "secSponsor": 6,
+    "secResults": 9,
+    "secPromo": 7,
+    "promoEyebrow": "OOK OP JULLIE CLUB?",
+    "promoMessage": "Live banen, uitslagen en je sponsors op één scherm in de kantine.",
+    "promoCta": "toernooitv.nl",
+    "promoColor": "#ff5a3c",
+    "tennisColor": "#c8f24a",
+    "padelColor": "#3da9fc",
+    "tennisBanen": 6,
+    "padelBanen": 4,
+    "tennisResults": 14,
+    "padelResults": 10,
+}
+_DISPLAY_INTS = {"secCourt": (4, 20), "secSponsor": (3, 15), "secResults": (4, 20),
+                 "secPromo": (4, 20), "tennisBanen": (1, 12), "padelBanen": (1, 12),
+                 "tennisResults": (0, 45), "padelResults": (0, 45)}
+_DISPLAY_COLORS = ("promoColor", "tennisColor", "padelColor")
+_DISPLAY_LOGOS = {"clubLogo": "club-logo", "sponsorLogo": "sponsor-logo"}
+_LOGO_EXT = {"image/png": "png", "image/jpeg": "jpg", "image/svg+xml": "svg",
+             "image/webp": "webp", "image/gif": "gif"}
+LOGO_MAX_BYTES = 5 * 1024 * 1024
 
 PORT = int(os.environ.get("PORT", "8770"))
 HOST = os.environ.get("HOST", "0.0.0.0")  # bind all interfaces so the Pi's LAN IP works
@@ -145,6 +187,10 @@ def _load_config():
                 "login": {"user": str(lg.get("user", "")), "pass": str(lg.get("pass", "")),
                           "name": str(lg.get("name", ""))},
             }
+            # absent "display" = box has no stored display settings yet (the
+            # settings page then carries over a browser's old localStorage once)
+            if isinstance(data.get("display"), dict):
+                CONFIG["display"] = _clean_display(data["display"], DISPLAY_DEFAULTS)
             return
         except Exception as e:  # noqa: BLE001
             print("config.json unreadable, ignoring:", e)
@@ -166,6 +212,80 @@ def _clean_t(t):
     }
 
 
+def _remove_logo_files(name, keep=None):
+    for p in glob.glob(os.path.join(UPLOADS_DIR, name + ".*")):
+        if p != keep:
+            try:
+                os.remove(p)
+            except OSError:
+                pass
+
+
+def _store_logo(name, data_url):
+    """Decode a data-URL logo into uploads/<name>.<ext>; returns its URL path.
+    Raises ValueError (Dutch reason) for an unsupported type or oversized file."""
+    m = re.match(r"data:([\w.+/-]+);base64,(.*)\Z", data_url, re.S)
+    if not m or m.group(1).lower() not in _LOGO_EXT:
+        raise ValueError("alleen PNG, JPG, SVG, WebP of GIF")
+    payload = m.group(2)
+    if len(payload) * 3 // 4 > LOGO_MAX_BYTES + 3:
+        raise ValueError("logo te groot (max 5 MB)")
+    try:
+        raw = base64.b64decode(payload, validate=True)
+    except (binascii.Error, ValueError):
+        raise ValueError("ongeldige afbeelding") from None
+    if len(raw) > LOGO_MAX_BYTES:
+        raise ValueError("logo te groot (max 5 MB)")
+    os.makedirs(UPLOADS_DIR, exist_ok=True)
+    path = os.path.join(UPLOADS_DIR, "%s.%s" % (name, _LOGO_EXT[m.group(1).lower()]))
+    tmp = path + ".tmp"
+    with open(tmp, "wb") as f:
+        f.write(raw)
+    os.replace(tmp, path)
+    _remove_logo_files(name, keep=path)
+    return "/uploads/%s?v=%d" % (os.path.basename(path), int(time.time() * 1000))
+
+
+def _clean_display(d, base, warnings=None):
+    """Validate display settings at the trust boundary. Starts from `base` (the
+    stored values), overlays only known keys, coerces/clamps. Never raises: a bad
+    logo keeps the stored value and appends a reason to `warnings`."""
+    out = {k: base.get(k, v) for k, v in DISPLAY_DEFAULTS.items()}
+    for k, dflt in DISPLAY_DEFAULTS.items():
+        if k not in d:
+            continue
+        v = d[k]
+        if isinstance(dflt, bool):
+            out[k] = bool(v)
+        elif k in _DISPLAY_INTS:
+            lo, hi = _DISPLAY_INTS[k]
+            try:
+                out[k] = min(hi, max(lo, int(v)))
+            except (TypeError, ValueError):
+                pass
+        elif k in _DISPLAY_COLORS:
+            if isinstance(v, str) and re.fullmatch(r"#[0-9a-fA-F]{6}", v):
+                out[k] = v
+        elif k in _DISPLAY_LOGOS:
+            name = _DISPLAY_LOGOS[k]
+            if not isinstance(v, str):
+                continue
+            if v == "":
+                _remove_logo_files(name)
+                out[k] = ""
+            elif v.startswith("data:"):
+                try:
+                    out[k] = _store_logo(name, v)
+                except (ValueError, OSError) as e:
+                    if warnings is not None:
+                        warnings.append("logo niet opgeslagen: %s" % e)
+            elif re.fullmatch(r"/uploads/%s\.(png|jpg|webp|gif|svg)(\?v=\d+)?" % name, v):
+                out[k] = v
+        elif isinstance(v, str):
+            out[k] = v[:300]  # no strip: the client adopts responses mid-typing
+    return out
+
+
 def _save_config():
     tmp = CONFIG_PATH + ".tmp"
     with open(tmp, "w", encoding="utf-8") as f:
@@ -184,6 +304,8 @@ def _masked_config():
         # credentials are never returned — only the display name + whether stored
         "login": {"user": lg.get("user", ""), "name": lg.get("name", ""),
                   "stored": bool(lg.get("user") and lg.get("pass"))},
+        # display settings hold no secrets; null = none stored on the box yet
+        "display": CONFIG.get("display") or None,
     }
 
 
@@ -763,6 +885,10 @@ class Handler(SimpleHTTPRequestHandler):
         p = self.path.split("?")[0].lower()
         if p.endswith((".dc.html", ".js", ".css")) and "cache-control" not in self._headers_buffer_keys():
             self.send_header("Cache-Control", "no-store")
+        if p.startswith("/uploads/"):
+            # uploaded logos (possibly SVG): never sniff, never run script if opened directly
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.send_header("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; sandbox")
         super().end_headers()
 
     def _headers_buffer_keys(self):
@@ -826,6 +952,10 @@ class Handler(SimpleHTTPRequestHandler):
                 self._json(list_my_tournaments())
             except Exception as e:  # noqa: BLE001
                 self._json({"ok": False, "error": str(e), "tournaments": []})
+            return
+        # config.json (+ its .tmp) holds the cookie and password — never serve it raw.
+        if os.path.basename(urllib.parse.unquote(path)).startswith("config.json"):
+            self._json({"ok": False, "error": "not found"}, 404)
             return
         # On the setup hotspot, push stray navigations / captive-portal probes to
         # our wifi page so the phone shows a working portal (replaces comitup-web).
@@ -922,13 +1052,20 @@ class Handler(SimpleHTTPRequestHandler):
                 CONFIG["cookie"] = str(body["cookie"]).strip()
             if body.get("clearLogin"):
                 CONFIG["login"] = {"user": "", "pass": ""}  # stop auto-renew, forget password
-            _cache.clear(); _mytourn["data"]=None  # config changed → drop cached data
+            warnings = []
+            if isinstance(body.get("display"), dict):
+                CONFIG["display"] = _clean_display(
+                    body["display"], CONFIG.get("display") or DISPLAY_DEFAULTS, warnings)
+            if any(k in body for k in ("tournaments", "cookie", "clearCookie", "clearLogin")):
+                _cache.clear(); _mytourn["data"]=None  # connection changed → drop cached data
             try:
                 _save_config()
             except Exception as e:  # noqa: BLE001
                 self._json({"ok": False, "error": "kon config niet opslaan: %s" % e}, 500)
                 return
             out = _masked_config()
+        if warnings:
+            out["warning"] = "; ".join(warnings)
         out["ok"] = True
         self._json(out)
 
