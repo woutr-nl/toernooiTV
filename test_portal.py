@@ -448,6 +448,13 @@ class LeadsTest(PortalBase):
         portal._demo_hits["203.0.113.9"] = [time.time() - portal.DEMO_WINDOW - 1] * portal.DEMO_LIMIT
         self.assertEqual(self.demo(LEAD, ip="203.0.113.9")[0], 200)  # window passed
 
+    def test_client_ip_trusts_forwarded_only_from_private_peer(self):
+        def ip(peer):
+            stub = type("H", (), {"client_address": (peer, 1), "headers": {"X-Forwarded-For": "1.2.3.4, 203.0.113.9"}})
+            return portal._client_ip(stub)
+        self.assertEqual(ip("172.18.0.5"), "203.0.113.9")  # proxy container on the Docker network
+        self.assertEqual(ip("8.8.8.8"), "8.8.8.8")  # public peer can't spoof its address (203.0.113.x counts as private)
+
     def test_notify_lead_unconfigured(self):
         portal.SMTP_HOST = ""
         self.assertIsNone(self.real_notify({**LEAD, "created": time.time()}))

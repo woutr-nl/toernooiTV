@@ -1,0 +1,29 @@
+# Toernooi TV portaal — draait vanaf het GHCR-image achter je eigen reverse proxy.
+# 1. Vul de CHANGE-ME-placeholders bij environment in (dit bestand is je configuratie; geen .env).
+# 2. Zet onderaan bij networks > proxy > name de naam van het bestaande Docker-netwerk van je proxy.
+# 3. docker compose pull && docker compose up -d ; de proxy bereikt het portaal op http://portal:8771.
+services:
+  portal:
+    image: ghcr.io/woutr-nl/toernooitv-portal:latest   # :main tot de eerste vX.Y.Z-tag na deze pipeline
+    restart: unless-stopped
+    environment:
+      PORTAL_COOKIE_SECURE: "1"
+      PORTAL_LEAD_TO: info@toernooitv.nl
+      PORTAL_LEAD_FROM: noreply@toernooitv.nl
+      PORTAL_SMTP_HOST: CHANGE-ME-smtp.example.nl
+      PORTAL_SMTP_PORT: "587"
+      PORTAL_SMTP_USER: CHANGE-ME
+      PORTAL_SMTP_PASS: CHANGE-ME
+      PORTAL_SMTP_STARTTLS: "1"
+    volumes:
+      - portal-data:/data
+      - portal-uploads:/app/portal/uploads
+    networks:
+      - proxy
+volumes:
+  portal-data:
+  portal-uploads:
+networks:
+  proxy:
+    external: true
+    name: proxy   # CHANGE-ME: naam van het bestaande Docker-netwerk van je reverse proxy

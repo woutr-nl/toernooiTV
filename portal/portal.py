@@ -27,6 +27,7 @@ import getpass
 import glob
 import hashlib
 import hmac
+import ipaddress
 import json
 import mimetypes
 import os
@@ -268,7 +269,7 @@ def _throttle(ip):
 def _client_ip(handler):
     ip = handler.client_address[0]
     fwd = handler.headers.get("X-Forwarded-For")
-    if fwd and ip in ("127.0.0.1", "::1"):  # via the local reverse proxy: it appends the real client last
+    if fwd and ipaddress.ip_address(ip).is_private:  # via a reverse proxy on loopback/Docker network: it appends the real client last
         return fwd.split(",")[-1].strip() or ip
     return ip
 

@@ -126,26 +126,65 @@ portal database as soon as the box confirms it).
 - Each box authenticates with its box-ID plus a secret generated on first contact
   (stored in `config.json` → `portal`; the portal keeps only a hash).
 
-**Hosting** (any small VPS):
-```bash
-git clone https://github.com/woutr-nl/toernooiTV.git /opt/toernooi-tv && cd /opt/toernooi-tv
-python3 portal/portal.py --create-operator beheerder     # asks for a password (re-run to reset it)
-sudo cp portal/toernooitv-portal.service /etc/systemd/system/   # edit User= and paths first
-sudo systemctl daemon-reload && sudo systemctl enable --now toernooitv-portal
-```
-The portal listens on `127.0.0.1:8771` (`PORTAL_HOST`/`PORTAL_PORT`, database at
-`PORTAL_DB`, default `portal/portal.db`). The same service serves the public website
-at `/` and the management UI at **`/portal`**. Put TLS in front, e.g. Caddy:
-```
-toernooitv.nl, www.toernooitv.nl, portal.toernooitv.nl {
-    reverse_proxy localhost:8771
-}
-```
-With nginx, also set `client_max_body_size 20m;` (logo uploads) and pass
-`X-Forwarded-For $proxy_add_x_forwarded_for` (the demo-form throttle uses it). The session cookie
-is `Secure`, so the portal must be served over https (`PORTAL_COOKIE_SECURE=0` for a
-plain-http dev setup only). Back up `portal/portal.db` (boxes, accounts and demo
-requests) and `portal/uploads/`.
+**Hosting (Docker Compose)** — the portal runs from the image
+`ghcr.io/woutr-nl/toernooitv-portal` (tags: `latest` = newest release, `X.Y.Z` = a
+pinned release, `main`/`<sha>` = development builds; see "Een release publiceren").
+The same container serves the public website at `/` and the management UI at
+**`/portal`**. All configuration lives in the `environment:` block of
+`portal/docker-compose.yml` — no `.env` file.
+
+1. **Start** — copy `portal/docker-compose.yml` to the VPS, fill in the `CHANGE-ME`
+   placeholders (SMTP settings and the proxy network name), then:
+   ```bash
+   docker compose pull && docker compose up -d
+   ```
+   One-time: a new GHCR package is private, so `pull` fails with `denied` until you
+   either make it public (GitHub → Packages → `toernooitv-portal` → Package settings →
+   Change visibility → **Public**, recommended) or run `docker login ghcr.io` on the
+   VPS with a personal access token that has `read:packages`. `:latest` only exists
+   after the first `vX.Y.Z` tag pushed after the pipeline was added; until then set
+   `image:` to `ghcr.io/woutr-nl/toernooitv-portal:main`. Upgrade = `docker compose
+   pull && docker compose up -d` (data lives in volumes).
+2. **Operator aanmaken** — against the running deployment:
+   ```bash
+   docker compose exec portal python3 portal/portal.py --create-operator beheerder
+   ```
+   It asks for a password; re-run it to reset the password.
+3. **Reverse proxy** — the portal publishes no ports. It joins your proxy's existing
+   external Docker network (`networks: proxy: name:` in the compose file) and is
+   reachable there as `portal:8771`. The proxy must terminate TLS, e.g. a Caddy
+   container on the same network:
+   ```
+   toernooitv.nl, www.toernooitv.nl, portal.toernooitv.nl {
+       reverse_proxy portal:8771
+   }
+   ```
+   With nginx, also set `client_max_body_size 20m;` (logo uploads) and pass
+   `X-Forwarded-For $proxy_add_x_forwarded_for` (the demo-form throttle uses it).
+   `X-Forwarded-For` is only honoured from private-network peers (the proxy). The
+   session cookie is `Secure`, so the portal must be served over https
+   (`PORTAL_COOKIE_SECURE=0` for a plain-http dev setup only).
+4. **Backup** — the volume `portal-data` holds `/data/portal.db` (boxes, accounts and
+   demo requests), `portal-uploads` holds `/app/portal/uploads` (logo previews). The
+   database uses WAL, so copy it with SQLite's backup API, not a plain file copy:
+   ```bash
+   docker compose exec portal python3 -c "import sqlite3; sqlite3.connect('/data/portal.db').backup(sqlite3.connect('/data/backup.db'))"
+   docker compose cp portal:/data/backup.db ./portal-backup.db
+   docker compose exec portal rm /data/backup.db
+   docker compose cp portal:/app/portal/uploads ./portal-uploads-backup
+   ```
+   **Restore** (the files copied in are owned by root, hence the `chown`):
+   ```bash
+   docker compose cp ./portal-backup.db portal:/data/restore.db
+   docker compose exec portal python3 -c "import sqlite3; sqlite3.connect('/data/restore.db').backup(sqlite3.connect('/data/portal.db'))"
+   docker compose exec portal rm /data/restore.db
+   docker compose cp ./portal-uploads-backup/. portal:/app/portal/uploads/
+   docker compose exec -u root portal chown -R portal /app/portal/uploads
+   docker compose restart
+   ```
+   **Moving from an old systemd install** — run `systemctl stop toernooitv-portal` on
+   the old host (checkpoints its WAL), then restore its `portal/portal.db` and
+   `portal/uploads/` with the restore steps above.
 
 **Website & demo-aanvragen** — `/` is the one-pager (`portal/site.html`, no build step);
 its **Inloggen** button opens the portal. The "Plan een demo" form posts to
@@ -154,18 +193,11 @@ its **Inloggen** button opens the portal. The "Plan een demo" form posts to
 Requests show up under **Aanvragen** in the portal (operator only, enforced by the
 server), with the mail status (*mail verstuurd* / *mail mislukt* / *geen mail
 verstuurd* when SMTP isn't configured). Bots are filtered by a hidden honeypot field
-and each IP may send at most 3 requests per 15 minutes. Mail settings go in
-`/etc/toernooitv-portal.env` (`sudo chmod 600`, read by the systemd unit — never in
-the unit file or the repo):
-```
-PORTAL_LEAD_TO=info@toernooitv.nl
-PORTAL_LEAD_FROM=noreply@toernooitv.nl
-PORTAL_SMTP_HOST=smtp.example.nl
-PORTAL_SMTP_PORT=587
-PORTAL_SMTP_USER=noreply@toernooitv.nl
-PORTAL_SMTP_PASS=…
-PORTAL_SMTP_STARTTLS=1
-```
+and each IP may send at most 3 requests per 15 minutes. Mail settings
+(`PORTAL_LEAD_TO`, `PORTAL_LEAD_FROM`, `PORTAL_SMTP_HOST`, `PORTAL_SMTP_PORT`,
+`PORTAL_SMTP_USER`, `PORTAL_SMTP_PASS`, `PORTAL_SMTP_STARTTLS`) live in the
+`environment:` block of the deployed `docker-compose.yml` — never commit real values.
+Change a value and run `docker compose up -d` (recreates the container) to apply it.
 `PORTAL_LEAD_TO` defaults to `info@toernooitv.nl`, `PORTAL_LEAD_FROM` to
 `PORTAL_SMTP_USER`. Empty `PORTAL_SMTP_HOST` = requests are stored but not mailed.
 Port `465` uses SSL; any other port uses STARTTLS unless `PORTAL_SMTP_STARTTLS=0`
@@ -200,7 +232,11 @@ installed before the portal need `sudo bash ./install-kiosk.sh` once after updat
 2. `git tag vX.Y.Z && git push origin main vX.Y.Z` — the tag name must be `v` + the
    `VERSION` content (the updater health-checks the served version against the
    tag's `VERSION`). Tags with a `-` (e.g. `v1.2.0-test`) are never picked.
-3. Boxes pick it up on their next triggered update.
+3. Boxes pick it up on their next triggered update. The same tag publishes the portal
+   image `ghcr.io/woutr-nl/toernooitv-portal:X.Y.Z` and moves `:latest` (GitHub
+   Actions, `.github/workflows/portal-image.yml`); every push to `main` publishes
+   `:main` and `:<sha>`. Tags with a `-` publish only their own tag and never move
+   `:latest`. Nothing is pushed if the portal tests fail.
 
 Never move or reuse a tag. If a release changes `appliance/*.service`,
 `appliance/sudoers` or `install-kiosk.sh`, re-run `sudo bash ./install-kiosk.sh` on
