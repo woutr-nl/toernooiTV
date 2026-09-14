@@ -911,13 +911,38 @@ def comitup_info():
         return {}
 
 
+def _radio_from(rfkill_out, nmcli_out):
+    """Wifi radio state from `rfkill list wifi` + `nmcli -t -f DEVICE,TYPE,STATE dev`
+    output: 'blocked' | 'unavailable' | 'ok', or '' when unknown."""
+    if "blocked: yes" in (rfkill_out or "").lower():
+        return "blocked"
+    for line in (nmcli_out or "").splitlines():
+        parts = line.split(":")
+        if len(parts) >= 3 and parts[1] == "wifi":
+            return "unavailable" if parts[2].startswith(("unavailable", "unmanaged")) else "ok"
+    return ""
+
+
+def wifi_radio_state():
+    """'ok' | 'blocked' (rfkill) | 'unavailable' (e.g. no wifi country) | '' (unknown/dev box)."""
+    def run(cmd):
+        try:
+            return subprocess.run(cmd, capture_output=True, text=True, timeout=3).stdout
+        except Exception:  # noqa: BLE001 — tool missing/slow ⇒ unknown
+            return ""
+    return _radio_from(run(["rfkill", "list", "wifi"]),
+                       run(["nmcli", "-t", "-f", "DEVICE,TYPE,STATE", "dev"]))
+
+
 def comitup_scan(max_age=10):
-    """Visible networks: [{ssid, strength(0-100), secured}], strongest first, deduped. Cached briefly."""
+    """(networks, error): networks = [{ssid, strength(0-100), secured}], strongest
+    first, deduped; error = '' or why the D-Bus scan failed. Successful scans are cached briefly."""
     now = time.time()
     with _wifi_lock:
         if _scan_cache["nets"] is not None and now - _scan_cache["ts"] < max_age:
-            return _scan_cache["nets"]
+            return _scan_cache["nets"], ""
     nets = {}
+    error = ""
     try:
         for ap in _comitup().access_points():
             ssid = str(ap.get("ssid", "")).strip()
@@ -932,12 +957,15 @@ def comitup_scan(max_age=10):
             prev = nets.get(ssid)
             if prev is None or strength > prev["strength"]:
                 nets[ssid] = {"ssid": ssid, "strength": strength, "secured": secured}
-    except Exception:  # noqa: BLE001
+    except ModuleNotFoundError:  # no dbus module (dev box) — not a scan failure
         pass
+    except Exception as e:  # noqa: BLE001 — comitup down / D-Bus error: report it
+        error = str(e) or type(e).__name__
     out = sorted(nets.values(), key=lambda n: -n["strength"])
-    with _wifi_lock:
-        _scan_cache.update(ts=now, nets=out)
-    return out
+    if not error:  # a failed scan must not hide its error behind a cached []
+        with _wifi_lock:
+            _scan_cache.update(ts=now, nets=out)
+    return out, error
 
 
 def comitup_connect(ssid, password):
@@ -1331,6 +1359,7 @@ class Handler(SimpleHTTPRequestHandler):
         if path == "/wifi":
             try:
                 st = device_status()
+                nets, scan_error = comitup_scan()
                 self._json({
                     "ok": True,
                     "mode": st.get("mode", ""),
@@ -1338,7 +1367,9 @@ class Handler(SimpleHTTPRequestHandler):
                     "ip": st.get("ip", ""),
                     "online": st.get("online", False),
                     "setupMode": st.get("setupMode", False),
-                    "networks": comitup_scan(),
+                    "networks": nets,
+                    "scanError": scan_error,
+                    "radio": wifi_radio_state(),  # ok | blocked | unavailable | '' (unknown)
                 })
             except Exception as e:  # noqa: BLE001
                 self._json({"ok": False, "error": str(e), "networks": []})

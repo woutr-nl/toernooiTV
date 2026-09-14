@@ -126,6 +126,9 @@
               <button onClick="{{ wifiScan }}" style="border:1px solid rgba(0,0,0,.14); background:#fff; cursor:pointer; padding:8px 14px; border-radius:9px; font:700 13px Archivo; color:#56524a;">Vernieuwen</button>
             </div>
             <div style="font:500 14px Archivo; color:#8a8578; margin-bottom:18px;">{{ wifiHint }}</div>
+            <sc-if value="{{ hasWifiRadioWarn }}">
+              <div style="font:600 14px Archivo; color:#a8453b; margin-bottom:14px;">{{ wifiRadioWarn }}</div>
+            </sc-if>
 
             <sc-if value="{{ hasNets }}">
               <div style="display:flex; flex-direction:column; gap:8px;">
@@ -155,7 +158,7 @@
               </div>
             </sc-if>
             <sc-if value="{{ noNets }}">
-              <div style="font:600 14px Archivo; color:#8a8578;">Geen netwerken gevonden — klik op Vernieuwen.</div>
+              <div style="font:600 14px Archivo; color:#8a8578;">{{ wifiNoNetsMsg }}</div>
             </sc-if>
 
             <sc-if value="{{ wifiConnected }}">
@@ -485,6 +488,69 @@
     </div>
   </sc-if>
 
+  <!-- SETUP — simple wifi page for the hotspot captive portal (/setup, /wifi-setup) -->
+  <sc-if value="{{ isSetup }}" hint-placeholder-val="{{ true }}">
+    <div style="min-height:100vh; background:#e7e5df;">
+      <div style="background:#0b0d11; padding:16px;">
+        <div style="max-width:480px; margin:0 auto; display:flex; align-items:center; justify-content:space-between; gap:12px;">
+          <!-- Toernooi TV logo — primaire lockup (wit op donker), compact -->
+          <div style="transform:skewX(-9deg); width:fit-content; flex:none;">
+            <div style="display:flex; align-items:center; gap:4px;">
+              <span style="font:900 21px/.84 Archivo; letter-spacing:-1px; color:#fff;">Toernooi</span>
+              <span style="display:inline-flex; align-items:center; padding:2px 6px 3px; background:#FF2E2E;"><span style="font:900 19px/.84 Archivo; letter-spacing:-1px; color:#fff;">TV</span></span>
+            </div>
+            <div style="height:3px; margin-top:3px; background:linear-gradient(90deg,#C8F24A,#3DA9FC);"></div>
+          </div>
+          <span style="font:700 11px 'JetBrains Mono'; color:#9aa3b2; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0;">{{ hotspotName }}</span>
+        </div>
+      </div>
+
+      <div style="max-width:480px; margin:0 auto; padding:20px 16px 40px;">
+        <div style="font:900 26px/1.1 Archivo; color:#1b1a17; margin-bottom:6px;">Verbind dit scherm met wifi</div>
+        <div style="font:500 15px Archivo; color:#8a8578; margin-bottom:18px;">Kies hieronder het wifi van de locatie.</div>
+
+        <div style="background:#fff; border:1px solid rgba(0,0,0,.08); border-radius:16px; padding:18px 16px;">
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px;">
+            <span style="font:800 18px Archivo; color:#1b1a17;">Netwerken</span>
+            <button onClick="{{ wifiScan }}" style="border:1px solid rgba(0,0,0,.14); background:#fff; cursor:pointer; padding:9px 14px; border-radius:9px; font:700 14px Archivo; color:#56524a;">Vernieuwen</button>
+          </div>
+          <sc-if value="{{ hasWifiRadioWarn }}">
+            <div style="font:600 14px Archivo; color:#a8453b; margin-bottom:14px;">{{ wifiRadioWarn }}</div>
+          </sc-if>
+
+          <sc-if value="{{ hasNets }}">
+            <div style="display:flex; flex-direction:column; gap:8px;">
+              <sc-for list="{{ wifiNets }}" as="nw" hint-placeholder-count="3">
+                <div>
+                  <button onClick="{{ nw.onPick }}" style="width:100%; display:flex; align-items:center; justify-content:space-between; gap:10px; padding:14px 15px; border:1px solid {{ nw.border }}; background:{{ nw.bg }}; cursor:pointer; border-radius:{{ nw.radius }}; text-align:left;">
+                    <span style="display:flex; align-items:center; gap:10px; min-width:0;">
+                      <span style="font:700 16px Archivo; color:#1b1a17; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ nw.ssid }}</span>
+                      <sc-if value="{{ nw.secured }}"><span style="font:600 13px Archivo; color:#8a8578;">🔒</span></sc-if>
+                    </span>
+                    <span style="font:700 13px 'JetBrains Mono'; color:#9aa3b2; white-space:nowrap;">{{ nw.bars }}</span>
+                  </button>
+                  <sc-if value="{{ nw.selected }}">
+                    <div style="display:flex; flex-direction:column; gap:12px; padding:14px 15px; border:1px solid #0b0d11; border-top:none; border-radius:0 0 10px 10px; background:#faf9f6;">
+                      <sc-if value="{{ nw.secured }}">
+                        <input type="password" value="{{ wifiPass }}" onChange="{{ onWifiPass }}" placeholder="Wifi-wachtwoord" style="width:100%; padding:14px 15px; border:1px solid rgba(0,0,0,.14); border-radius:10px; font:600 16px Archivo; color:#1b1a17; background:#fff; outline:none;">
+                      </sc-if>
+                      <button onClick="{{ wifiConnect }}" style="width:100%; border:none; background:#0b0d11; cursor:pointer; padding:14px 22px; border-radius:10px; font:700 16px Archivo; color:#fff;">Verbinden</button>
+                      <span style="font:600 14px Archivo; color:#56524a;">{{ wifiMsg }}</span>
+                      <span style="font:500 13px Archivo; color:#8a8578;">{{ setupNextStep }}</span>
+                    </div>
+                  </sc-if>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+          <sc-if value="{{ noNets }}">
+            <div style="font:600 14px Archivo; color:#8a8578;">{{ wifiNoNetsMsg }}</div>
+          </sc-if>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
 </div>
 </x-dc>
 <script type="text/x-dc" data-dc-script>
@@ -628,13 +694,17 @@ class Component extends DCLogic {
   _maybeDailyReload = () => { const d = new Date(); if (d.getHours() === 4 && d.getMinutes() === 0) location.reload(); };
 
   // Routing: the bare URL is the fullscreen display; settings live behind a hash
-  // (#beheer), which the server also exposes at the tidy /beheer path.
+  // (#beheer), which the server also exposes at the tidy /beheer path. /setup
+  // (captive-portal target on the hotspot) is the simple phone wifi page.
   _applyHash = () => {
     const p = (location.pathname || '').toLowerCase();
     const h = (location.hash || '').replace(/^#\/?/, '').toLowerCase();
-    const beheer = /\/(beheer|instellingen|settings|setup|wifi-setup)\/?$/.test(p) ||
-      h === 'beheer' || h === 'instellingen' || h === 'config' || h === 'settings' || h === 'setup';
-    this.setState({ tab: beheer ? 'beheer' : 'display' });
+    const setupRe = /\/(setup|wifi-setup)\/?$/;
+    const beheerRe = /\/(beheer|instellingen|settings)\/?$/;
+    const setup = setupRe.test(p) || h === 'setup' || h === 'wifi-setup';
+    const beheer = beheerRe.test(p) ||
+      h === 'beheer' || h === 'instellingen' || h === 'config' || h === 'settings';
+    this.setState({ tab: setup ? 'setup' : beheer ? 'beheer' : 'display' });
   };
 
   // Pull live court data from the local proxy (server.py /board). Fails quietly
@@ -1065,6 +1135,7 @@ class Component extends DCLogic {
     const tn = sw(s.showTennis), pd = sw(s.showPadel), sp = sw(s.showSponsor), rs = sw(s.showResults), ps = sw(s.showPromo);
     const initials = (s.clubName.replace(/[^A-Za-z ]/g, ' ').split(/\s+/).filter(Boolean).map(w => w[0]).join('').slice(0, 2).toUpperCase()) || 'TV';
     const isBeheer = this.state.tab === 'beheer';
+    const isSetup = this.state.tab === 'setup';
     const mk = (src, style) => (src ? React.createElement('img', { src, style }) : null);
 
     // Connection / tournament config rows for the Instellingen screen.
@@ -1143,6 +1214,18 @@ class Component extends DCLogic {
       ? 'Kies het wifi van de locatie en vul het wachtwoord in. Let op: zodra het scherm verbindt valt dit instelnetwerk weg — verbind je telefoon daarna met datzelfde wifi en open toernooitv.local/beheer.'
       : 'Kies een netwerk om dit scherm met internet te verbinden.';
     const wifiIpLabel = wifi.ip ? ('IP-adres: ' + wifi.ip) : '';
+    // Why the list is empty (or stale): radio blocked / adapter unavailable / scan failed / hotspot.
+    const wifiRadioWarn = wifi.radio === 'blocked'
+      ? 'De wifi-radio van dit apparaat staat uit (rfkill). Herstart de box; helpt dat niet, draai de installatie opnieuw (die stelt het wifi-land in en deblokkeert de radio).'
+      : wifi.radio === 'unavailable'
+      ? 'De wifi-adapter is niet beschikbaar — waarschijnlijk is het wifi-land niet ingesteld. Herstart de box of draai de installatie opnieuw.'
+      : '';
+    const wifiNoNetsMsg = wifiRadioWarn
+      || (wifi.scanError ? 'Netwerken zoeken lukte niet (' + wifi.scanError + '). Klik op Vernieuwen om het opnieuw te proberen.'
+      : onHotspot ? 'Tijdens het instelnetwerk kan de box niet zoeken naar netwerken en er is geen eerdere zoekopdracht bewaard. Staat de router aan en binnen bereik? Herstart dan de box.'
+      : 'Geen netwerken gevonden — klik op Vernieuwen.');
+    const setupNextStep = 'Je telefoon verliest zo de verbinding met het instelnetwerk. Verbind je telefoon daarna met ' +
+      (wifiSel || 'het gekozen wifi') + ' en open toernooitv.local/beheer.';
 
     // On-screen overlays for the fullscreen kiosk.
     const st = this.state.status || {};
@@ -1166,8 +1249,9 @@ class Component extends DCLogic {
       gridCols: managed ? 'minmax(0,760px)' : 'minmax(0,1fr) minmax(340px,440px)',
       portalNotice: 'Dit scherm wordt beheerd via het Toernooi TV-portaal' + (cfg.portalName ? (' als ‘' + cfg.portalName + '’') : '') +
         '. Weergave, toernooien en de Tournamentsoftware-login pas je daar aan; hier stel je alleen de wifi in.',
-      isDisplay: !isBeheer,
+      isDisplay: !isBeheer && !isSetup,
       isBeheer,
+      isSetup,
       fullScale: this.state.fullScale,
       goWeergave: this.goWeergave,
       goBeheer: this.goBeheer,
@@ -1280,6 +1364,7 @@ class Component extends DCLogic {
       // wifi / network
       wifiNets, hasNets: wifiNets.length > 0, noNets: wifiNets.length === 0,
       wifiStatusLabel, wifiDotColor, wifiHint, wifiIpLabel,
+      wifiNoNetsMsg, wifiRadioWarn, hasWifiRadioWarn: !!wifiRadioWarn, setupNextStep,
       wifiConnected: wifiConnectedNow,
       wifiPass: this.state.wifiPass, wifiMsg: this.state.wifiMsg,
       onWifiPass: this.onWifiPass, wifiConnect: this.wifiConnect,

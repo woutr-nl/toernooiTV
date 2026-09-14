@@ -1,0 +1,7 @@
+# template — placeholders filled in by install-kiosk.sh; do not `systemctl link` this file directly
+[Unit]
+Description=Toernooi TV: ensure dnsmasq serves the setup hotspot
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash __APP__/appliance/hotspot-dhcp.sh

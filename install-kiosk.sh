@@ -45,11 +45,12 @@ install -d /etc/avahi/services
 install -m 644 "$APP/appliance/toernooitv.avahi.service" /etc/avahi/services/toernooitv.service
 
 echo "==> Installing systemd units…"
-for unit in toernooitv-server.service toernooitv-kiosk.service toernooitv-update.service; do
+for unit in toernooitv-server.service toernooitv-kiosk.service toernooitv-update.service \
+            toernooitv-hotspot-dhcp.service toernooitv-hotspot-dhcp.timer; do
   render "$unit" > "/etc/systemd/system/$unit"
   chmod 644 "/etc/systemd/system/$unit"
 done
-chmod +x "$APP/appliance/kiosk.sh"
+chmod +x "$APP/appliance/kiosk.sh" "$APP/appliance/hotspot-dhcp.sh"
 
 echo "==> Allowing the server to start the updater (sudoers)…"
 tmp="$(mktemp)"
@@ -65,6 +66,16 @@ rm -f "$tmp"
 echo "==> Configuring comitup wifi wizard…"
 install -m 644 "$APP/appliance/comitup.conf" /etc/comitup.conf
 
+echo "==> Wifi country NL + radio unblock (a fresh Pi OS ships soft-blocked without a country)…"
+if command -v raspi-config >/dev/null 2>&1; then
+  raspi-config nonint do_wifi_country NL || true
+else
+  iw reg set NL 2>/dev/null || true
+  install -d /etc/modprobe.d
+  echo 'options cfg80211 ieee80211_regdom=NL' > /etc/modprobe.d/toernooitv-wifi.conf
+fi
+rfkill unblock wifi 2>/dev/null || true
+
 echo "==> Freeing ports 8770/80 if a dev server is holding them…"
 fuser -k 8770/tcp 2>/dev/null || true
 
@@ -76,6 +87,8 @@ systemctl disable --now getty@tty1.service 2>/dev/null || true
 systemctl enable toernooitv-kiosk.service
 # comitup brings up the setup hotspot when no known wifi is found
 systemctl enable comitup.service 2>/dev/null || true
+# HOTSPOT ⇒ dnsmasq watchdog: comitup can miss the callback that starts it (no IPs for phones)
+systemctl enable --now toernooitv-hotspot-dhcp.timer
 # Mask comitup's own web portal: it binds :80 too, so it fought our server for
 # the port and crash-looped (no portal page). Our server serves the wifi setup
 # page on :80 instead (captive-redirect + the Wifi card), driving comitup over
