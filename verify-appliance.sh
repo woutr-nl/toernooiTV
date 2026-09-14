@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Post-install / post-reboot health check for the Toernooi TV appliance.
-# Safe to run without sudo. Run after:  sudo bash install-kiosk.sh && sudo reboot
-#   bash /home/woutr/toernooi-tv/verify-appliance.sh
+# Safe to run without sudo. Run from the checkout after:  sudo bash ./install-kiosk.sh && sudo reboot
+#   bash ./verify-appliance.sh
 set -u
+APP="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 pass=0; fail=0
 ok()   { echo "  ✓ $1"; pass=$((pass+1)); }
 bad()  { echo "  ✗ $1"; fail=$((fail+1)); }
@@ -29,6 +30,30 @@ board=$(curl -s "http://localhost:8770/board" 2>/dev/null)
 echo "$board" | grep -q '"ok"' && ok "/board responds" || bad "/board did not respond"
 echo "$board" | grep -q '"source": *"live"' && note "board source: live (cookie working)" \
   || note "board not live yet — log in at /beheer (this is fine pre-config)"
+health=$(curl -s "http://localhost:8770/health" 2>/dev/null)
+ver=$(echo "$health" | sed -n 's/.*"version": *"\([^"]*\)".*/\1/p')
+bid=$(echo "$health" | sed -n 's/.*"boxId": *"\([^"]*\)".*/\1/p')
+if [ -n "$ver" ] && [ -n "$bid" ]; then
+  ok "/health reports version + box id"; note "version $ver · box id $bid"
+else
+  bad "/health has no version/boxId (old server still running? sudo systemctl restart toernooitv-server)"
+fi
+
+echo "== updates =="
+grep -qF "$APP/" /etc/systemd/system/toernooitv-update.service 2>/dev/null \
+  && ok "update unit installed for $APP" \
+  || bad "update unit missing or installed from another location (sudo bash $APP/install-kiosk.sh)"
+[ -f /etc/sudoers.d/toernooitv ] && ok "sudoers rule for the updater present" || bad "/etc/sudoers.d/toernooitv missing (re-run the installer)"
+owner=$(stat -c %U "$APP")
+if [ "$(id -un)" = "$owner" ]; then
+  sudo -n -l /usr/bin/systemctl start --no-block toernooitv-update.service >/dev/null 2>&1 \
+    && ok "$owner may start the updater" || bad "$owner may not start the updater (sudoers rule wrong?)"
+fi
+if timeout 20 env GIT_TERMINAL_PROMPT=0 git -C "$APP" ls-remote --tags origin >/dev/null 2>&1; then
+  note "release remote reachable"
+else
+  note "remote not reachable — updates will fail until the box is online / origin is fetchable"
+fi
 
 echo "== mDNS / name =="
 # mDNS .local is case-insensitive (RFC 6762), so any-case "toernooitv" is fine.

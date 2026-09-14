@@ -1,6 +1,7 @@
 #!/bin/sh
 # Launched by cage (Wayland kiosk compositor) as the single fullscreen client.
 # Waits for the local server, then opens the fullscreen display in Chromium.
+APP="$(cd "$(dirname "$0")/.." && pwd)"
 URL="http://localhost:8770/"
 
 # Wait up to 60s for the server to answer (it starts in parallel on boot).
@@ -19,4 +20,4 @@ exec chromium \
   --disable-features=Translate,TranslateUI \
   --check-for-update-interval=31536000 \
   --autoplay-policy=no-user-gesture-required \
-  --user-data-dir=/home/woutr/toernooi-tv/.kiosk-profile
+  --user-data-dir="$APP/.kiosk-profile"

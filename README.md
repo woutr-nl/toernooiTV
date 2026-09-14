@@ -35,12 +35,26 @@ Turn the Pi into a device you plug into any TV: on boot it starts the server,
 shows the fullscreen display on its own HDMI, and — if it can't find a known
 wifi — raises a setup hotspot so you can join the venue's wifi from a phone.
 
-**Install once** (the only step that needs root):
+**Install once** on a fresh, supported Raspberry Pi OS (any normal user, any home
+directory). Prerequisites: the checkout is owned by that non-root user, lives on a
+path **without spaces**, and `origin` is fetchable from the box without
+interaction (public repo, or a read-only token baked into the remote URL) —
+updates pull from it.
 
 ```bash
-sudo bash ~/toernooi-tv/install-kiosk.sh
+sudo apt install -y git
+git clone https://github.com/woutr-nl/toernooiTV.git toernooi-tv && cd toernooi-tv
+# run the newest release (skip when the repo has no v* tags yet)
+git checkout "$(git tag -l 'v[0-9]*' --sort=-version:refname | grep -v -- - | head -1)"
+sudo bash ./install-kiosk.sh
 sudo reboot
+# after the reboot:
+bash ./verify-appliance.sh
 ```
+
+The installer derives the app directory from its own location and the service
+user from the owner of that directory, and generates the systemd units from the
+`appliance/` templates (`__APP__`/`__USER__`/`__UID__` placeholders).
 
 What it sets up:
 - `cage` + `chromium` kiosk → fullscreen `http://localhost:8770/` on tty1/HDMI
@@ -66,6 +80,40 @@ internet + a valid cookie; without it the display falls back to demo data.)
 
 Logs: `journalctl -u toernooitv-server -u toernooitv-kiosk -b`. To stop the kiosk
 and get a console back: `sudo systemctl disable --now toernooitv-kiosk; sudo systemctl enable --now getty@tty1`.
+
+## Versie, box-ID & bijwerken
+
+- **Versie** — the tracked `VERSION` file (`dev` when missing). **Box-ID** — a
+  uuid generated once on first start into `.boxid` (gitignored), so it survives
+  reboots and updates. Both show in **Instellingen → Software** and in `/status`,
+  `/health` and `/config`.
+- **Update** (only when triggered — never automatic): the **Nu bijwerken** button
+  in Instellingen, or `curl -X POST localhost:8770/update`, or directly
+  `sudo systemctl start toernooitv-update`. The updater
+  (`appliance/update.sh`, run as root by `toernooitv-update.service`) fetches the
+  tags from `origin`, checks out the newest `vX.Y.Z` tag, restarts the server,
+  waits (60 s) until `/health` reports the new version, then restarts the kiosk.
+  A box already on or ahead of the newest release reports `up-to-date`.
+- **Rollback** — if the new version doesn't come up healthy, the previous commit is
+  checked out again and server + kiosk are restarted (`rolled-back`). If fetching
+  fails (offline, remote unreachable) nothing changes (`failed`). Settings, cookie,
+  tournaments, logos (`config.json`, `uploads/`) and wifi are never touched.
+- **Outcome** — `update-state.json` (`{status, from, to, startedAt, finishedAt, error}`,
+  status `running | ok | up-to-date | failed | rolled-back`), shown on the Software
+  card and returned as `update` in `/config`. Logs: `journalctl -u toernooitv-update`.
+
+## Een release publiceren
+
+1. Set `VERSION` to `X.Y.Z` and commit.
+2. `git tag vX.Y.Z && git push origin main vX.Y.Z` — the tag name must be `v` + the
+   `VERSION` content (the updater health-checks the served version against the
+   tag's `VERSION`). Tags with a `-` (e.g. `v1.2.0-test`) are never picked.
+3. Boxes pick it up on their next triggered update.
+
+Never move or reuse a tag. If a release changes `appliance/*.service`,
+`appliance/sudoers` or `install-kiosk.sh`, re-run `sudo bash ./install-kiosk.sh` on
+the box after updating — the updater does not regenerate units or sudoers. Until the
+first tag (`v1.0.0`) is pushed, an update ends as `failed` (no release tags).
 
 ## Live match data (cookie-replay, multi-tournament)
 
@@ -126,7 +174,9 @@ they are carried over to the box once.
   `display` may be partial; logos are sent as data-URLs and come back as
   `/uploads/…` URLs (a rejected logo keeps the old one and adds `warning`).
 - `/uploads/…` — uploaded logos
-- `/health` — `{ ok, cookieSet, tournaments }`
+- `/health` — `{ ok, cookieSet, tournaments, version, boxId }`
+- `/update` — POST (no body) starts a self-update: `{ ok, message }` or `{ ok:false, error }`
+  (already running, or updater not installed); the outcome appears as `update` in `/config`
 
 ## Known gaps to resolve with live data
 - **Sport split** — the API exposes no tennis/padel field; classification is by
