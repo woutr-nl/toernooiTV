@@ -4,6 +4,7 @@
     { "code": "<tournament-uuid>", "label": "Voorbeeld", "enabled": true }
   ],
   "login": { "user": "", "pass": "", "name": "" },
+  "portal": { "secret": "", "linked": false, "rev": 0, "name": "", "lastCmdId": 0, "pending": null },
   "display": {
     "clubName": "Toernooi TV",
     "clubLogo": "",

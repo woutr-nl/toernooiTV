@@ -6,7 +6,8 @@ Imported from the Claude Design project and implemented as a runnable local app.
 - `Toernooi TV.dc.html` — management UI (Weergave / Instellingen)
 - `Display.dc.html` — the 1920×1080 TV screen (imported by the above)
 - `support.js` — the Design Component runtime (unmodified)
-- `server.py` — static server **+** `/board` proxy to the TournamentSoftware API
+- `server.py` — static server **+** `/board` proxy to the TournamentSoftware API (+ portal sync)
+- `portal/` — the hosted remote-management portal (see "Portaal")
 
 ## Run
 
@@ -102,6 +103,70 @@ and get a console back: `sudo systemctl disable --now toernooitv-kiosk; sudo sys
   status `running | ok | up-to-date | failed | rolled-back`), shown on the Software
   card and returned as `update` in `/config`. Logs: `journalctl -u toernooitv-update`.
 
+## Portaal (beheer op afstand)
+
+`portal/portal.py` is a small hosted service (Python stdlib + SQLite, no extra
+packages) with a Dutch web UI (`portal/portal.html`, vendored React from `vendor/`).
+Boxes connect **outward** to it, so they work behind any club wifi/NAT without port
+forwarding.
+
+**How a box talks to the portal** — every 10 s `server.py` POSTs a status snapshot
+to `{TP_PORTAL_URL}/api/box/sync` (version, wifi SSID + IP, setup-hotspot state,
+TournamentSoftware status, effective display settings, tournaments) and gets back
+config changes (by revision) and queued commands. Changes reach an online box within
+~30 s; commands queued while it is offline run when it reconnects. `config.json`
+stays the box's source of truth, so if the portal is unreachable the TV simply keeps
+running on its last settings. The TournamentSoftware password and cookie are never
+sent to the portal (a new login travels portal → box once and is wiped from the
+portal database as soon as the box confirms it).
+
+- `TP_PORTAL_URL` (server env) — default `https://portal.toernooitv.nl`. Only
+  `https://` is used (plain `http://` only to `localhost`/`127.0.0.1` for testing);
+  set it empty to disable syncing.
+- Each box authenticates with its box-ID plus a secret generated on first contact
+  (stored in `config.json` → `portal`; the portal keeps only a hash).
+
+**Hosting** (any small VPS):
+```bash
+git clone https://github.com/woutr-nl/toernooiTV.git /opt/toernooi-tv && cd /opt/toernooi-tv
+python3 portal/portal.py --create-operator beheerder     # asks for a password (re-run to reset it)
+sudo cp portal/toernooitv-portal.service /etc/systemd/system/   # edit User= and paths first
+sudo systemctl daemon-reload && sudo systemctl enable --now toernooitv-portal
+```
+The portal listens on `127.0.0.1:8771` (`PORTAL_HOST`/`PORTAL_PORT`, database at
+`PORTAL_DB`, default `portal/portal.db`). Put TLS in front, e.g. Caddy:
+```
+portal.toernooitv.nl {
+    reverse_proxy localhost:8771
+}
+```
+With nginx, also set `client_max_body_size 20m;` (logo uploads). The session cookie
+is `Secure`, so the portal must be served over https (`PORTAL_COOKIE_SECURE=0` for a
+plain-http dev setup only). Back up `portal/portal.db` and `portal/uploads/`.
+
+**Linking a box** — an unlinked box that reaches the portal shows
+**Portaal-koppelcode: ABC-123** at the bottom of the TV. The operator clicks
+**Box koppelen**, enters that code (valid while the box is online), picks the club and
+a name. The portal starts from the box's current settings. **Ontkoppelen** removes the
+box from the portal; it shows a new code again and its local `/beheer` is fully
+usable again. If a linked box ever loses `config.json` (but keeps `.boxid`) the portal
+won't recognise it any more: unlink it and link it again with the code on the TV.
+
+**Roles**
+- *Beheerder (operator)* — all boxes, clubs and club users, link/unlink/move boxes,
+  display settings, tournaments + TournamentSoftware login, app restart, box reboot,
+  software update (with outcome) and logs.
+- *Clubgebruiker* — only their own club's boxes: display settings, tournaments and the
+  TournamentSoftware login. Everything else is refused by the server, not just hidden.
+  The operator creates these accounts; everyone can change their own password.
+
+**On a linked box** the local `/beheer` only offers wifi setup plus a notice that the
+box is managed via the portal; `POST /config` and `POST /login` answer 403.
+
+Restart, reboot and logs use the fixed sudo rules in `appliance/sudoers`: boxes
+installed before the portal need `sudo bash ./install-kiosk.sh` once after updating
+(otherwise those actions report "Niet toegestaan op deze box").
+
 ## Een release publiceren
 
 1. Set `VERSION` to `X.Y.Z` and commit.
@@ -174,6 +239,10 @@ they are carried over to the box once.
   `display` may be partial; logos are sent as data-URLs and come back as
   `/uploads/…` URLs (a rejected logo keeps the old one and adds `warning`).
 - `/uploads/…` — uploaded logos
+- `/status` — `{ online, ssid, ip, setupMode, hotspotName, version, boxId, managed, linkCode? }`
+  (`linkCode` only while the box is not linked to the portal)
+- `/config` also returns `managed` and `portalName`; on a portal-managed box
+  `POST /config` and `POST /login` return 403
 - `/health` — `{ ok, cookieSet, tournaments, version, boxId }`
 - `/update` — POST (no body) starts a self-update: `{ ok, message }` or `{ ok:false, error }`
   (already running, or updater not installed); the outcome appears as `update` in `/config`
