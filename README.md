@@ -134,15 +134,42 @@ sudo cp portal/toernooitv-portal.service /etc/systemd/system/   # edit User= and
 sudo systemctl daemon-reload && sudo systemctl enable --now toernooitv-portal
 ```
 The portal listens on `127.0.0.1:8771` (`PORTAL_HOST`/`PORTAL_PORT`, database at
-`PORTAL_DB`, default `portal/portal.db`). Put TLS in front, e.g. Caddy:
+`PORTAL_DB`, default `portal/portal.db`). The same service serves the public website
+at `/` and the management UI at **`/portal`**. Put TLS in front, e.g. Caddy:
 ```
-portal.toernooitv.nl {
+toernooitv.nl, www.toernooitv.nl, portal.toernooitv.nl {
     reverse_proxy localhost:8771
 }
 ```
-With nginx, also set `client_max_body_size 20m;` (logo uploads). The session cookie
+With nginx, also set `client_max_body_size 20m;` (logo uploads) and pass
+`X-Forwarded-For $proxy_add_x_forwarded_for` (the demo-form throttle uses it). The session cookie
 is `Secure`, so the portal must be served over https (`PORTAL_COOKIE_SECURE=0` for a
-plain-http dev setup only). Back up `portal/portal.db` and `portal/uploads/`.
+plain-http dev setup only). Back up `portal/portal.db` (boxes, accounts and demo
+requests) and `portal/uploads/`.
+
+**Website & demo-aanvragen** — `/` is the one-pager (`portal/site.html`, no build step);
+its **Inloggen** button opens the portal. The "Plan een demo" form posts to
+`POST /api/demo`: the request is stored, a notification mail goes to
+`PORTAL_LEAD_TO`, and the visitor sees the thank-you state even when the mail fails.
+Requests show up under **Aanvragen** in the portal (operator only, enforced by the
+server), with the mail status (*mail verstuurd* / *mail mislukt* / *geen mail
+verstuurd* when SMTP isn't configured). Bots are filtered by a hidden honeypot field
+and each IP may send at most 3 requests per 15 minutes. Mail settings go in
+`/etc/toernooitv-portal.env` (`sudo chmod 600`, read by the systemd unit — never in
+the unit file or the repo):
+```
+PORTAL_LEAD_TO=info@toernooitv.nl
+PORTAL_LEAD_FROM=noreply@toernooitv.nl
+PORTAL_SMTP_HOST=smtp.example.nl
+PORTAL_SMTP_PORT=587
+PORTAL_SMTP_USER=noreply@toernooitv.nl
+PORTAL_SMTP_PASS=…
+PORTAL_SMTP_STARTTLS=1
+```
+`PORTAL_LEAD_TO` defaults to `info@toernooitv.nl`, `PORTAL_LEAD_FROM` to
+`PORTAL_SMTP_USER`. Empty `PORTAL_SMTP_HOST` = requests are stored but not mailed.
+Port `465` uses SSL; any other port uses STARTTLS unless `PORTAL_SMTP_STARTTLS=0`
+(e.g. a local relay).
 
 **Linking a box** — an unlinked box that reaches the portal shows
 **Portaal-koppelcode: ABC-123** at the bottom of the TV. The operator clicks

@@ -7,11 +7,13 @@ import os
 import re
 import shutil
 import sqlite3
+import socket
 import sys
 import tempfile
 import threading
 import time
 import unittest
+import unittest.mock
 import urllib.error
 import urllib.request
 from http.server import ThreadingHTTPServer
@@ -27,7 +29,7 @@ SECRET = "box-secret-" + "s" * 32
 TS_PASS, TS_COOKIE = "hunter2tspass", "SECRETCOOKIEVALUE"
 
 
-class PortalTest(unittest.TestCase):
+class PortalBase(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, self.tmp)
@@ -50,8 +52,8 @@ class PortalTest(unittest.TestCase):
             setattr(portal, k, v)
 
     # -- helpers --
-    def raw(self, method, path, body=None, token=None, csrf=True):
-        headers = {"Content-Type": "application/json"}
+    def raw(self, method, path, body=None, token=None, csrf=True, headers=None):
+        headers = {"Content-Type": "application/json", **(headers or {})}
         if csrf:
             headers["X-Portal"] = "1"
         if token:
@@ -66,8 +68,8 @@ class PortalTest(unittest.TestCase):
         self.seen.append(text.decode("utf-8", "replace"))
         return status, hdrs, text
 
-    def req(self, method, path, body=None, token=None, csrf=True):
-        status, _, text = self.raw(method, path, body, token, csrf)
+    def req(self, method, path, body=None, token=None, csrf=True, headers=None):
+        status, _, text = self.raw(method, path, body, token, csrf, headers)
         return status, json.loads(text or b"{}")
 
     def login(self, user, pw):
@@ -105,7 +107,8 @@ class PortalTest(unittest.TestCase):
         finally:
             c.close()
 
-    # -- tests --
+
+class PortalTest(PortalBase):
     def test_login_required_and_static(self):
         self.assertEqual(self.req("GET", "/api/boxes")[0], 401)
         self.assertEqual(self.req("GET", "/api/boxes", token="bogus")[0], 401)
@@ -333,6 +336,135 @@ class PortalTest(unittest.TestCase):
         text = "\n".join(self.seen[start:])
         for secret in (TS_PASS, TS_COOKIE, SECRET, portal._sha(SECRET), "clubpass1", "adminpass1", "pass_hash", "salt"):
             self.assertNotIn(secret, text)
+
+
+LEAD = {"name": "Jan Jansen", "club": "TC Oost", "email": "jan@tcoost.nl", "message": "8 banen\nvolgende maand"}
+LEAD_ERROR = "Vul je naam en een geldig e-mailadres in."
+
+
+class LeadsTest(PortalBase):
+    def setUp(self):
+        super().setUp()
+        for k in ("notify_lead", "_notify_async", "SMTP_HOST", "SMTP_PORT", "LEAD_TO"):
+            self.saved[k] = getattr(portal, k)
+        self.real_notify = portal.notify_lead
+        self.mailed, self.mail_result, self.ip = [], True, 0
+
+        def fake_notify(lead):
+            self.mailed.append(lead)
+            return self.mail_result
+        portal.notify_lead = fake_notify
+        portal._notify_async = portal._record_notify  # synchronous: no thread writing after cleanup
+        portal._demo_hits.clear()
+
+    def demo(self, body, ip=None, **kw):
+        self.ip += 1  # own source per request, so only the throttle test hits the limit
+        return self.req("POST", "/api/demo", body, headers={"X-Forwarded-For": ip or "10.0.0.%d" % self.ip}, **kw)
+
+    def leads(self):
+        s, out = self.req("GET", "/api/leads", token=self.op)
+        self.assertEqual(s, 200)
+        return out["leads"]
+
+    def test_site_at_root_portal_at_portal(self):
+        for path in ("/", "/index.html"):
+            status, hdrs, text = self.raw("GET", path)
+            self.assertEqual(status, 200, path)
+            for s in ("Plan een demo", "Inloggen", 'href="/portal"', "Vul je naam en een geldig e-mailadres in.", "novalidate"):
+                self.assertIn(s.encode(), text, s)
+            self.assertIn("frame-ancestors 'none'", hdrs["Content-Security-Policy"])
+        for path in ("/portal", "/portal/"):
+            status, _, text = self.raw("GET", path)
+            self.assertEqual(status, 200, path)
+            self.assertIn("Toernooi TV · Portaal".encode(), text)
+        self.assertEqual(self.raw("GET", "/portal.html")[0], 404)
+
+    def test_valid_request_stored_and_mailed(self):
+        self.assertEqual(self.demo(LEAD), (200, {"ok": True}))
+        self.assertEqual([(m["name"], m["club"], m["email"], m["message"]) for m in self.mailed],
+                         [("Jan Jansen", "TC Oost", "jan@tcoost.nl", "8 banen\nvolgende maand")])
+        self.mail_result = None  # SMTP not configured
+        self.assertEqual(self.demo({"name": "  Piet\r\n Puk ", "email": " piet@club.nl "})[0], 200)
+        leads = self.leads()
+        self.assertEqual([(l["name"], l["club"], l["email"], l["emailed"]) for l in leads],
+                         [("Piet Puk", "", "piet@club.nl", None), ("Jan Jansen", "TC Oost", "jan@tcoost.nl", True)])
+        self.assertEqual(leads[1]["message"], "8 banen\nvolgende maand")
+        self.assertAlmostEqual(leads[1]["created"], time.time(), delta=60)
+
+    def test_invalid_input_stores_nothing(self):
+        for body in ({"email": "jan@tcoost.nl"}, {"name": "   ", "email": "jan@tcoost.nl"},
+                     {"name": "Jan", "email": "foo@bar"}, {"name": "Jan", "email": ""}, {"name": "Jan"},
+                     {"name": "Jan", "email": "jan jansen@tcoost.nl"}, {"name": "Jan", "email": "a@b.nl\r\nBcc: x@y.nl"}):
+            self.assertEqual(self.demo(body), (400, {"ok": False, "error": LEAD_ERROR}), body)
+        self.assertEqual(self.demo(LEAD, csrf=False)[0], 403)
+        self.assertEqual(self.demo({**LEAD, "message": "x" * 20000})[0], 413)
+        self.assertEqual((self.leads(), self.mailed), ([], []))
+
+    def test_mail_failure_still_stored(self):
+        self.mail_result = False
+        self.assertEqual(self.demo(LEAD), (200, {"ok": True}))
+        self.assertEqual(self.leads()[0]["emailed"], False)
+        # the real SMTP path against a closed port
+        portal.notify_lead = self.real_notify
+        with socket.socket() as sock:
+            sock.bind(("127.0.0.1", 0))
+            port = sock.getsockname()[1]
+        portal.SMTP_HOST, portal.SMTP_PORT = "127.0.0.1", port
+        self.assertEqual(self.demo({**LEAD, "name": "Kees"}), (200, {"ok": True}))
+        self.assertEqual([(l["name"], l["emailed"]) for l in self.leads()], [("Kees", False), ("Jan Jansen", False)])
+
+    def test_async_notify_updates_lead(self):
+        portal._notify_async = self.saved["_notify_async"]
+        done = threading.Event()
+        portal.notify_lead = lambda lead: done.set() or True
+        self.assertEqual(self.demo(LEAD)[0], 200)
+        self.assertTrue(done.wait(5))
+        for _ in range(50):
+            if self.leads()[0]["emailed"]:
+                break
+            time.sleep(0.05)
+        self.assertEqual(self.leads()[0]["emailed"], True)
+
+    def test_leads_operator_only(self):
+        self.demo(LEAD)
+        _, tok = self.club_with_user("Club A", "clubby")
+        self.assertEqual(self.req("GET", "/api/leads", token=tok), (403, {"ok": False, "error": "Alleen voor de beheerder"}))
+        self.assertEqual(self.req("GET", "/api/leads")[0], 401)
+        self.assertNotIn("jan@tcoost.nl", "\n".join(self.seen[-2:]))
+        self.assertEqual(len(self.leads()), 1)
+
+    def test_honeypot(self):
+        self.assertEqual(self.demo({**LEAD, "website": "http://spam.example"}), (200, {"ok": True}))
+        self.assertEqual((self.leads(), self.mailed), ([], []))
+
+    def test_throttle_per_ip(self):
+        for _ in range(portal.DEMO_LIMIT):
+            self.assertEqual(self.demo(LEAD, ip="203.0.113.9")[0], 200)
+        self.assertEqual(self.demo(LEAD, ip="203.0.113.9")[0], 429)
+        # a spoofed first X-Forwarded-For entry doesn't help: the proxy appends the real client last
+        self.assertEqual(self.demo(LEAD, ip="1.2.3.4, 203.0.113.9")[0], 429)
+        self.assertEqual(self.demo(LEAD, ip="198.51.100.7")[0], 200)
+        self.assertEqual(len(self.leads()), portal.DEMO_LIMIT + 1)
+        portal._demo_hits["203.0.113.9"] = [time.time() - portal.DEMO_WINDOW - 1] * portal.DEMO_LIMIT
+        self.assertEqual(self.demo(LEAD, ip="203.0.113.9")[0], 200)  # window passed
+
+    def test_notify_lead_unconfigured(self):
+        portal.SMTP_HOST = ""
+        self.assertIsNone(self.real_notify({**LEAD, "created": time.time()}))
+
+    def test_notify_lead_message(self):
+        portal.SMTP_HOST, portal.SMTP_PORT = "smtp.test", 587
+        with unittest.mock.patch.object(portal.smtplib, "SMTP") as smtp:
+            self.assertTrue(self.real_notify({**LEAD, "created": time.time()}))
+        smtp.assert_called_once_with("smtp.test", 587, timeout=15)
+        conn = smtp.return_value
+        conn.send_message.assert_called_once()
+        msg = conn.send_message.call_args[0][0]
+        self.assertEqual((msg["To"], msg["Reply-To"]), (portal.LEAD_TO, "jan@tcoost.nl"))
+        self.assertIn("Jan Jansen (TC Oost)", msg["Subject"])
+        self.assertIn("8 banen", msg.get_content())
+        with unittest.mock.patch.object(portal.smtplib, "SMTP", side_effect=OSError("down")):
+            self.assertFalse(self.real_notify({**LEAD, "created": time.time()}))
 
 
 if __name__ == "__main__":

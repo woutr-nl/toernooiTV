@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Toernooi TV · Live scorebord voor tennis- &amp; padelclubs</title>
+<meta name="description" content="Toernooi TV toont live banen, uitslagen en je sponsors op één scherm in de kantine. Plug &amp; play op een kant-en-klaar kastje, direct gekoppeld aan je toernooisoftware.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='15' fill='%23FF2E2E'/%3E%3Cg transform='translate(32 38) skewX(-9)'%3E%3Ctext text-anchor='middle' font-family='Archivo,Arial,sans-serif' font-weight='900' font-size='30' fill='white'%3ETV%3C/text%3E%3C/g%3E%3C/svg%3E">
+<link href="/vendor/fonts.css" rel="stylesheet">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  [hidden]{display:none !important;}
+  html{scroll-behavior:smooth;}
+  body{background:#e7e5df;}
+  a{text-decoration:none;color:inherit;}
+  input,textarea,button{font-family:Archivo,sans-serif;}
+  input:focus,textarea:focus{outline:none;border-color:#ff5a3c;}
+  ::placeholder{color:#a8a399;}
+
+  .page{max-width:1000px;margin:0 auto;background:#faf9f6;font-family:Archivo,sans-serif;color:#1b1a17;overflow:hidden;}
+
+  /* hero */
+  .hero{background:radial-gradient(120% 130% at 82% -20%, #18222f 0%, #0b0d11 58%);color:#fff;padding:30px 64px 56px;}
+  .nav{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;margin-bottom:54px;}
+  .logo{transform:skewX(-9deg);display:flex;align-items:center;gap:6px;}
+  .logo-word{font:900 26px Archivo;letter-spacing:-1px;color:#fff;}
+  .logo-tv{display:inline-flex;align-items:center;padding:1px 8px 4px;background:#ff2e2e;}
+  .logo-tv span{font:900 24px Archivo;letter-spacing:-1px;color:#fff;}
+  .nav-links{display:flex;align-items:center;gap:30px;}
+  .nav-text{font:600 15px Archivo;color:#aeb6c4;}
+  .nav-text:hover{color:#fff;}
+  .btn{font:700 14px Archivo;color:#fff;background:#ff5a3c;padding:11px 20px;border-radius:10px;white-space:nowrap;}
+  .btn-ghost{background:transparent;border:1px solid rgba(255,255,255,.28);padding:10px 19px;margin-right:-14px;}
+  .btn-ghost:hover{border-color:#fff;}
+  .eyebrow{font:700 13px 'JetBrains Mono';letter-spacing:4px;color:#7da7d4;margin-bottom:18px;}
+  .hero h1{font:900 60px Archivo;letter-spacing:-2px;line-height:1.0;max-width:680px;}
+  .lead{font:500 20px Archivo;color:#b9c0cc;line-height:1.45;max-width:620px;margin-top:24px;}
+  .previews{display:flex;gap:14px;margin-top:40px;max-width:760px;}
+  .pcard{flex:1;background:#14171d;border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:16px 22px;position:relative;overflow:hidden;}
+  .pcard-bar{position:absolute;top:0;left:0;bottom:0;width:5px;}
+  .pcard-top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:9px;}
+  .pcard-label{font:700 11px Archivo;letter-spacing:2px;color:#7d8696;}
+  .live{display:inline-flex;align-items:center;gap:6px;font:800 11px Archivo;letter-spacing:1px;color:#c8f24a;}
+  .live::before{content:'';width:8px;height:8px;border-radius:50%;background:#c8f24a;}
+  .player{font:700 19px Archivo;color:#f2f4f8;}
+  .vs{font:800 11px Archivo;letter-spacing:2px;color:#5b6473;margin:3px 0;}
+  .result{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:11px;}
+
+  /* sections */
+  .s-feat{padding:48px 64px 8px;}
+  .s-steps{padding:36px 64px 8px;}
+  .s-price{padding:44px 64px 8px;}
+  .s-contact{padding:48px 64px 56px;}
+  .kicker{font:800 13px Archivo;letter-spacing:2px;color:#8a8578;text-transform:uppercase;margin-bottom:22px;}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px;}
+  .fcard{background:#fff;border:1px solid rgba(0,0,0,.08);border-radius:14px;padding:22px 26px;}
+  .fhead{display:flex;align-items:center;gap:11px;margin-bottom:9px;font:800 19px Archivo;}
+  .fdot{width:13px;height:13px;border-radius:50%;flex:none;}
+  .ftext{font:500 15px Archivo;color:#56524a;line-height:1.4;}
+  .step{display:flex;flex-direction:column;gap:9px;}
+  .step-num{font:800 28px 'JetBrains Mono';color:#1b1a17;}
+  .step-title{font:800 17px Archivo;}
+  .step-text{font:500 14px Archivo;color:#56524a;line-height:1.4;}
+
+  /* pricing */
+  .phead{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:8px 20px;margin-bottom:8px;}
+  .phead h2{font:900 32px Archivo;letter-spacing:-.5px;}
+  .phead p{font:600 15px Archivo;color:#8a8578;}
+  .prices{gap:18px;margin-top:22px;}
+  .price{border-radius:18px;padding:30px 32px;position:relative;overflow:hidden;}
+  .price-once{background:#fff;border:1px solid rgba(0,0,0,.1);}
+  .price-sub{border:2px solid #ff5a3c;background-color:#56585e;}
+  .badge{position:absolute;top:20px;right:24px;font:800 11px Archivo;letter-spacing:1.5px;color:#fff;background:#ff5a3c;padding:5px 11px;border-radius:999px;}
+  .plabel{font:700 12px 'JetBrains Mono';letter-spacing:2px;color:#8a8578;}
+  .amount{display:flex;align-items:baseline;gap:8px;margin:12px 0 4px;}
+  .amount b{font:900 56px Archivo;letter-spacing:-1px;}
+  .amount span{font:600 16px Archivo;color:#8a8578;}
+  .pdesc{font:500 15px Archivo;color:#56524a;line-height:1.4;margin-bottom:20px;}
+  .plist{display:flex;flex-direction:column;gap:11px;list-style:none;}
+  .plist li{display:flex;align-items:center;gap:12px;font:600 15px Archivo;color:#1b1a17;}
+  .plist li::before{content:'';width:8px;height:8px;border-radius:50%;background:#1b1a17;flex:none;}
+  .price-sub .plabel{color:#ff7a5e;}
+  .price-sub .amount b{color:#fff;}
+  .price-sub .amount span{color:#9aa3b2;}
+  .price-sub .pdesc{color:#aeb6c4;}
+  .price-sub .plist li{color:#f2f4f8;}
+  .price-sub .plist li::before{background:#ff5a3c;}
+
+  /* contact */
+  .cbox{background:#fff;border:1px solid rgba(0,0,0,.08);border-radius:20px;padding:40px 44px;}
+  .cgrid{display:grid;grid-template-columns:0.85fr 1.15fr;gap:48px;align-items:start;}
+  .cgrid h2{font:900 34px Archivo;letter-spacing:-.5px;line-height:1.1;}
+  .ctext{font:500 16px Archivo;color:#56524a;line-height:1.5;margin-top:16px;}
+  .clist{display:flex;flex-direction:column;gap:14px;margin-top:28px;}
+  .clist a{display:flex;align-items:center;gap:12px;font:700 15px 'JetBrains Mono';color:#1b1a17;}
+  .clist a::before{content:'';width:9px;height:9px;border-radius:50%;background:#ff5a3c;flex:none;}
+  .form{display:flex;flex-direction:column;gap:14px;}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  .lbl{display:block;font:700 12px Archivo;letter-spacing:1.5px;color:#8a8578;text-transform:uppercase;margin-bottom:7px;}
+  .inp{width:100%;padding:13px 15px;border:1px solid rgba(0,0,0,.14);border-radius:10px;font:600 15px Archivo;color:#1b1a17;background:#faf9f6;}
+  textarea.inp{resize:vertical;}
+  .err{font:600 14px Archivo;color:#d23b2e;}
+  .err:empty{display:none;}
+  .submit{margin-top:4px;border:none;background:#ff5a3c;cursor:pointer;padding:15px;border-radius:11px;font:800 16px Archivo;color:#fff;}
+  .submit:disabled{opacity:.7;cursor:default;}
+  .note{font:500 13px Archivo;color:#a8a399;text-align:center;}
+  .hp{position:absolute;left:-10000px;top:0;width:1px;height:1px;overflow:hidden;}
+  .thanks{display:flex;flex-direction:column;align-items:center;text-align:center;padding:40px 20px;}
+  .check{width:64px;height:64px;border-radius:50%;background:#ff5a3c;display:flex;align-items:center;justify-content:center;margin-bottom:24px;font:900 34px Archivo;color:#0b0d11;}
+  .thanks h2{font:900 32px Archivo;letter-spacing:-.5px;}
+  .thanks p{font:500 17px Archivo;color:#56524a;line-height:1.5;margin-top:14px;max-width:480px;}
+
+  /* footer */
+  .foot{background:#0b0d11;padding:26px 64px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px;}
+  .foot .logo{gap:5px;}
+  .foot .logo-word{font-size:19px;letter-spacing:-.7px;}
+  .foot .logo-tv{padding:0 6px 2px;}
+  .foot .logo-tv span{font-size:17px;letter-spacing:-.7px;}
+  .foot-text{font:600 14px Archivo;color:#7d8696;}
+
+  @media (max-width: 760px){
+    .hero,.s-feat,.s-steps,.s-price,.s-contact,.foot{padding-left:20px;padding-right:20px;}
+    .hero{padding-top:20px;padding-bottom:40px;}
+    .nav{margin-bottom:36px;gap:12px;}
+    .nav-links{gap:10px;}
+    .nav-text{display:none;}
+    .btn{font-size:13px;padding:9px 13px;}
+    .btn-ghost{padding:8px 12px;margin-right:0;}
+    .logo-word{font-size:21px;}
+    .logo-tv span{font-size:19px;}
+    .hero h1{font-size:38px;letter-spacing:-1px;}
+    .lead{font-size:17px;}
+    .previews{flex-direction:column;}
+    .grid2,.grid3,.cgrid,.row2{grid-template-columns:minmax(0,1fr);}
+    .grid3{gap:24px;}
+    .phead h2{font-size:26px;}
+    .price{padding:26px 22px;}
+    .badge{position:static;display:inline-block;margin-bottom:14px;}
+    .cbox{padding:28px 20px;}
+    .cgrid{gap:28px;}
+    .cgrid h2{font-size:28px;}
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- HERO -->
+  <header class="hero">
+    <nav class="nav">
+      <a href="#" class="logo" aria-label="Toernooi TV"><span class="logo-word">Toernooi</span><span class="logo-tv"><span>TV</span></span></a>
+      <div class="nav-links">
+        <a href="#functies" class="nav-text">Functies</a>
+        <a href="#prijs" class="nav-text">Prijs</a>
+        <a href="/portal" class="btn btn-ghost">Inloggen</a>
+        <a href="#contact" class="btn">Plan een demo</a>
+      </div>
+    </nav>
+
+    <div class="eyebrow">VOOR TENNIS- &amp; PADELCLUBS</div>
+    <h1>Laat je toernooi leven in de kantine.</h1>
+    <p class="lead">Toernooi TV toont live banen, uitslagen en je sponsors op één scherm. Plug &amp; play op een kant-en-klaar kastje, direct gekoppeld aan je toernooisoftware.</p>
+
+    <div class="previews" aria-hidden="true">
+      <div class="pcard">
+        <div class="pcard-bar" style="background:#c8f24a;"></div>
+        <div class="pcard-top">
+          <span class="pcard-label">BAAN 3 · TENNIS</span>
+          <span class="live">OP DE BAAN</span>
+        </div>
+        <div class="player">R. van der Berg</div>
+        <div class="vs">VS</div>
+        <div class="player">T. Jansen</div>
+      </div>
+      <div class="pcard">
+        <div class="pcard-bar" style="background:#3da9fc;"></div>
+        <span class="pcard-label">PADEL · UITSLAG</span>
+        <div class="result">
+          <span style="font:800 17px Archivo; color:#fff;">de Vries / Smit</span>
+          <span style="font:700 17px 'JetBrains Mono'; color:#3da9fc;">6-3 6-4</span>
+        </div>
+        <div style="font:600 16px Archivo; color:#7d8696; margin-top:6px;">Kok / Maas</div>
+      </div>
+    </div>
+  </header>
+
+  <!-- FEATURES -->
+  <section id="functies" class="s-feat">
+    <div class="kicker">Alles op één scherm</div>
+    <div class="grid2">
+      <div class="fcard">
+        <div class="fhead"><span class="fdot" style="background:#c8f24a;"></span>Live banen</div>
+        <div class="ftext">Wie speelt waar, en wie is straks aan de beurt. Realtime, zonder dat iemand iets hoeft bij te werken.</div>
+      </div>
+      <div class="fcard">
+        <div class="fhead"><span class="fdot" style="background:#c6a15b;"></span>Uitslagen</div>
+        <div class="ftext">Alle gespeelde wedstrijden overzichtelijk op een rij — zoveel mogelijk resultaten per scherm.</div>
+      </div>
+      <div class="fcard">
+        <div class="fhead"><span class="fdot" style="background:#7da7d4;"></span>Sponsors in beeld</div>
+        <div class="ftext">Geef je hoofdsponsor een volledig scherm in de rotatie. Telkens opnieuw, de hele dag.</div>
+      </div>
+      <div class="fcard">
+        <div class="fhead"><span class="fdot" style="background:#ff5a3c;"></span>Automatische rotatie</div>
+        <div class="ftext">Het bord wisselt zelf tussen schermen en ververst continu. Ophangen en vergeten.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ZO WERKT HET -->
+  <section class="s-steps">
+    <div class="kicker" style="margin-bottom:20px;">Zo werkt het</div>
+    <div class="grid3">
+      <div class="step">
+        <span class="step-num">01</span>
+        <span class="step-title">Koppel je toernooi</span>
+        <span class="step-text">We sluiten aan op je bestaande toernooisoftware. Geen dubbel werk.</span>
+      </div>
+      <div class="step">
+        <span class="step-num">02</span>
+        <span class="step-title">Hang het kastje op</span>
+        <span class="step-text">Sluit het voorgeïnstalleerde kastje aan op je tv. Klaar in 5 minuten.</span>
+      </div>
+      <div class="step">
+        <span class="step-num">03</span>
+        <span class="step-title">Klaar</span>
+        <span class="step-text">Het bord draait vanzelf — de hele toernooidag, elk seizoen.</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- PRICING -->
+  <section id="prijs" class="s-price">
+    <div class="phead">
+      <h2>Eén prijs, geen verrassingen.</h2>
+      <p>Eén sponsor op het scherm verdient het terug.</p>
+    </div>
+    <div class="grid2 prices">
+      <div class="price price-once">
+        <div class="plabel">EENMALIG · OPSTART</div>
+        <div class="amount"><b>€150</b><span>incl. kastje</span></div>
+        <div class="pdesc">Een kant-en-klaar scorebord-kastje, vooraf ingesteld en klaar om op te hangen.</div>
+        <ul class="plist">
+          <li>Voorgeïnstalleerd kastje (plug &amp; play)</li>
+          <li>Koppeling met je toernooisoftware</li>
+          <li>Persoonlijke installatie-check</li>
+        </ul>
+      </div>
+      <div class="price price-sub">
+        <span class="badge">BETAALT ZICHZELF TERUG</span>
+        <div class="plabel">ABONNEMENT</div>
+        <div class="amount"><b>€20</b><span>per maand</span></div>
+        <div class="pdesc">Updates, nieuwe functies en support — het hele seizoen, elk jaar.</div>
+        <ul class="plist">
+          <li>Automatische software-updates</li>
+          <li>Sponsor-, uitslagen- &amp; marketingschermen</li>
+          <li>E-mail support</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- CONTACT -->
+  <section id="contact" class="s-contact">
+    <div class="cbox">
+      <div id="ask" class="cgrid">
+        <div>
+          <h2>Klaar voor je volgende toernooi?</h2>
+          <p class="ctext">Laat je gegevens achter en we plannen een gratis demo op jullie club. We hangen het bord met je op en koppelen je toernooi.</p>
+          <div class="clist">
+            <a href="mailto:info@toernooitv.nl">info@toernooitv.nl</a>
+            <a href="/">toernooitv.nl</a>
+          </div>
+        </div>
+        <form id="demo" class="form" novalidate>
+          <div class="row2">
+            <div>
+              <label class="lbl" for="f-name">Naam *</label>
+              <input id="f-name" class="inp" type="text" placeholder="Je naam" autocomplete="name" maxlength="120">
+            </div>
+            <div>
+              <label class="lbl" for="f-club">Club</label>
+              <input id="f-club" class="inp" type="text" placeholder="Je vereniging" autocomplete="organization" maxlength="120">
+            </div>
+          </div>
+          <div>
+            <label class="lbl" for="f-email">E-mail *</label>
+            <input id="f-email" class="inp" type="email" placeholder="naam@club.nl" autocomplete="email" maxlength="200">
+          </div>
+          <div>
+            <label class="lbl" for="f-msg">Bericht</label>
+            <textarea id="f-msg" class="inp" rows="3" placeholder="Hoeveel banen heeft jullie club? Wanneer is jullie volgende toernooi?" maxlength="2000"></textarea>
+          </div>
+          <div class="hp" aria-hidden="true">
+            <label for="f-website">Website</label>
+            <input id="f-website" type="text" tabindex="-1" autocomplete="off">
+          </div>
+          <div id="err" class="err" role="alert"></div>
+          <button type="submit" class="submit">Plan mijn gratis demo</button>
+          <div class="note">We nemen binnen 2 werkdagen contact op.</div>
+        </form>
+      </div>
+      <div id="thanks" class="thanks" hidden>
+        <div class="check">✓</div>
+        <h2 id="thanks-title">Bedankt!</h2>
+        <p>We hebben je aanvraag ontvangen en plannen snel een gratis demo. Je hoort binnen 2 werkdagen van ons op het opgegeven e-mailadres.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer class="foot">
+    <div class="logo"><span class="logo-word">Toernooi</span><span class="logo-tv"><span>TV</span></span></div>
+    <span class="foot-text">Live scorebord voor tennis- &amp; padelclubs · toernooitv.nl</span>
+  </footer>
+
+</div>
+<script>
+(function () {
+  'use strict';
+  const form = document.getElementById('demo'), err = document.getElementById('err'), btn = form.querySelector('button');
+  const val = id => document.getElementById(id).value;
+  const FAILED = 'Er ging iets mis — probeer het later opnieuw of mail info@toernooitv.nl.';
+  form.addEventListener('submit', async e => {
+    e.preventDefault();
+    const name = val('f-name').trim(), email = val('f-email').trim();
+    if (!name || !/.+@.+\..+/.test(email)) { err.textContent = 'Vul je naam en een geldig e-mailadres in.'; return; }
+    err.textContent = '';
+    btn.disabled = true;
+    btn.textContent = 'Versturen…';
+    try {
+      const r = await fetch('/api/demo', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Portal': '1' },
+        body: JSON.stringify({ name, club: val('f-club'), email, message: val('f-msg'), website: val('f-website') }),
+      });
+      let data = {};
+      try { data = await r.json(); } catch (x) { /* not JSON */ }
+      if (r.ok && data.ok) {
+        document.getElementById('thanks-title').textContent = name ? 'Bedankt, ' + name + '!' : 'Bedankt!';
+        document.getElementById('ask').hidden = true;
+        document.getElementById('thanks').hidden = false;
+      } else {
+        err.textContent = data.error || FAILED;
+      }
+    } catch (x) {
+      err.textContent = FAILED;
+    }
+    btn.disabled = false;
+    btn.textContent = 'Plan mijn gratis demo';
+  });
+})();
+</script>
+</body>
+</html>
