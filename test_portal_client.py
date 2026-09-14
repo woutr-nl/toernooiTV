@@ -2,11 +2,14 @@
 """Self-check for the box side of the portal: sync, config apply, commands and
 the managed gating of the local /beheer API. Run: python3 test_portal_client.py"""
 
+import contextlib
 import datetime
+import io
 import json
 import os
 import shutil
 import subprocess
+import sys
 import tempfile
 import threading
 import time
@@ -57,7 +60,8 @@ class PortalClientTest(unittest.TestCase):
                        "login": {"user": "ts", "pass": "hunter2pass", "name": "TS"}},
             "device_status": lambda: {"mode": "", "online": True, "ssid": "Kantine", "ip": "10.0.0.7", "setupMode": False},
             "list_my_tournaments": lambda: {"ok": True, "tournaments": [{"code": "t1", "name": "Open"}]},
-            "_psync": {"results": [], "warnings": [], "myT": None, "myTs": 0.0, "authWarned": False},
+            "_psync": {"results": [], "warnings": [], "myT": None, "myTs": 0.0,
+                       "lastOk": 0.0, "lastError": "", "lastErrorAt": 0.0, "errLoggedAt": 0.0},
             "_link": {"code": "AB3-9KF"},
         }
         for k, v in patches.items():
@@ -249,17 +253,94 @@ class PortalClientTest(unittest.TestCase):
         self.assertFalse(self.call("GET", "/config")[1]["managed"])
         self.assertEqual(self.call("POST", "/config", {"display": {"secCourt": 9}})[0], 200)
         self.assertTrue(server._portal_url_ok("https://portal.toernooitv.nl"))
+        self.assertTrue(server._portal_url_ok("https://toernooitv.nl"))
         self.assertTrue(server._portal_url_ok("http://localhost:8771"))
         for bad in ("", "http://portal.example.nl", "ftp://x"):
             self.assertFalse(server._portal_url_ok(bad), bad)
         with mock.patch.object(server, "PORTAL_URL", "http://portal.example.nl"):
-            self.assertNotIn("linkCode", self.call("GET", "/status")[1])
+            st = self.call("GET", "/status")[1]
+        self.assertNotIn("linkCode", st)
+        self.assertNotIn("portal", st)
 
-    def test_portal_unreachable_is_silent(self):
+    def test_default_portal_url(self):
+        env = {k: v for k, v in os.environ.items() if k != "TP_PORTAL_URL"}
+        out = subprocess.run([sys.executable, "-c", "import server; print(server.PORTAL_URL)"],
+                             env=env, cwd=server.HERE, capture_output=True, text=True, check=True)
+        self.assertEqual(out.stdout.strip(), "https://toernooitv.nl")
+
+    def sync_logged(self):
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            server.portal_sync()
+        return buf.getvalue()
+
+    def test_portal_unreachable_keeps_local_config(self):
         server.CONFIG["display"] = {**server.DISPLAY_DEFAULTS, "clubName": "Blijft"}
         with mock.patch.object(server, "PORTAL_URL", "http://127.0.0.1:9"):
-            server.portal_sync()
+            self.sync_logged()
         self.assertEqual(self.call("GET", "/config")[1]["display"]["clubName"], "Blijft")
+
+    def test_portal_unreachable_sets_error_and_logs_once(self):
+        with mock.patch.object(server, "PORTAL_URL", "http://127.0.0.1:9"):
+            log = "".join(self.sync_logged() for _ in range(3))
+            self.assertEqual(log.count("mislukt — portaal niet bereikbaar"), 1, log)
+            self.assertIn("http://127.0.0.1:9", log)
+            p = self.call("GET", "/status")[1]["portal"]
+            self.assertEqual(p, {"ok": False, "lastOk": None, "error": "portaal niet bereikbaar"})
+            server._psync["errLoggedAt"] -= server.PORTAL_LOG_EVERY + 1  # ~10 minutes later
+            log += self.sync_logged()
+        self.assertEqual(log.count("mislukt"), 2, log)
+
+    def test_http_500_error(self):
+        with mock.patch.object(server, "PORTAL_URL", "http://127.0.0.1:9"):
+            log = self.sync_logged()
+        self.replies((500, {}))
+        log += self.sync_logged()
+        p = self.call("GET", "/status")[1]["portal"]
+        self.assertEqual((p["ok"], p["error"]), (False, "portaal gaf HTTP 500"))
+        self.assertEqual(log.count("mislukt"), 2, log)  # reason changed → logged again
+
+    def test_401_message_kept(self):
+        self.replies((401, {}))
+        log = self.sync_logged() + self.sync_logged()
+        self.assertEqual(log.count("box niet herkend (401) — ontkoppel en koppel hem opnieuw in het portaal"), 1, log)
+
+    def test_error_classification(self):
+        import socket, ssl  # noqa: E401
+        msg = server._sync_error_msg
+        self.assertEqual(msg(urllib.error.URLError(ssl.SSLError(1, "[SSL: TLSV1_ALERT_INTERNAL_ERROR]"))),
+                         "certificaat/TLS-fout")
+        self.assertEqual(msg(urllib.error.URLError(socket.gaierror(-2, "Name or service not known"))),
+                         "portaal niet gevonden (DNS)")
+        self.assertEqual(msg(urllib.error.URLError(TimeoutError("timed out"))), "portaal niet bereikbaar")
+        self.assertEqual(msg(TimeoutError("timed out")), "portaal niet bereikbaar")
+        self.assertEqual(msg(json.JSONDecodeError("x", "", 0)), "ongeldig antwoord")
+        self.assertEqual(msg(UnicodeDecodeError("utf-8", b"\xff", 0, 1, "invalid start byte")), "ongeldig antwoord")
+
+    def test_recovery_logged_once(self):
+        with mock.patch.object(server, "PORTAL_URL", "http://127.0.0.1:9"):
+            log = self.sync_logged()
+        log += self.sync_logged() + self.sync_logged()
+        p = self.call("GET", "/status")[1]["portal"]
+        self.assertTrue(p["ok"])
+        self.assertIsNone(p["error"])
+        self.assertIsInstance(p["lastOk"], float)
+        self.assertGreater(p["lastOk"], 0)
+        self.assertEqual(log.count("portal: weer bereikbaar"), 1, log)
+
+    def test_link_code_usable_only_after_sync(self):
+        st = self.call("GET", "/status")[1]
+        self.assertEqual(st["linkCode"], "AB3-9KF")
+        self.assertEqual(st["portal"], {"ok": False, "lastOk": None, "error": None})  # "Verbinden met portaal…"
+        self.sync_logged()
+        self.assertTrue(self.call("GET", "/status")[1]["portal"]["ok"])
+        with mock.patch.object(server, "PORTAL_URL", "http://127.0.0.1:9"):
+            self.sync_logged()
+            st = self.call("GET", "/status")[1]
+        self.assertFalse(st["portal"]["ok"])
+        self.assertEqual(st["linkCode"], "AB3-9KF")
+        server._psync.update(lastError="", lastOk=time.time() - server.PORTAL_STALE - 1)  # stale success
+        self.assertFalse(self.call("GET", "/status")[1]["portal"]["ok"])
 
 
 if __name__ == "__main__":

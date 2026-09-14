@@ -39,6 +39,29 @@ else
   bad "/health has no version/boxId (old server still running? sudo systemctl restart toernooitv-server)"
 fi
 
+echo "== portal =="
+# Same default as server.py; a TP_PORTAL_URL in the service environment wins.
+senv=$(systemctl show toernooitv-server -p Environment --value 2>/dev/null | tr ' ' '\n')
+if printf '%s\n' "$senv" | grep -q '^TP_PORTAL_URL='; then
+  purl=$(printf '%s\n' "$senv" | sed -n 's/^TP_PORTAL_URL=//p' | tail -n1)
+else
+  purl=${TP_PORTAL_URL-https://toernooitv.nl}
+fi
+if [ -z "$purl" ]; then
+  note "TP_PORTAL_URL is empty — portal sync disabled"
+else
+  errfile=$(mktemp)
+  code=$(curl -sS -o /dev/null -w '%{http_code}' -m 15 -X POST -H 'Content-Type: application/json' \
+    -d '{}' "${purl%/}/api/box/sync" 2>"$errfile")
+  if [ "$code" = "400" ]; then
+    ok "portal reachable at $purl (sync answers 400 for an unknown box)"
+  else
+    bad "portal NOT reachable at $purl (HTTP '${code:-none}')"
+    [ -s "$errfile" ] && note "curl: $(tr '\n' ' ' < "$errfile")"
+  fi
+  rm -f "$errfile"
+fi
+
 echo "== updates =="
 grep -qF "$APP/" /etc/systemd/system/toernooitv-update.service 2>/dev/null \
   && ok "update unit installed for $APP" \
