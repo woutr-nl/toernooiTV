@@ -1,12 +1,17 @@
-# Toernooi TV portaal — draait vanaf het GHCR-image achter je eigen reverse proxy.
+# Toernooi TV portaal — draait vanaf het GHCR-image achter je eigen reverse proxy, met PostgreSQL ernaast.
 # 1. Vul de CHANGE-ME-placeholders bij environment in (dit bestand is je configuratie; geen .env).
+#    Het databasewachtwoord staat er twee keer in: bij db > POSTGRES_PASSWORD en in PORTAL_DATABASE_URL —
+#    die moeten gelijk zijn (speciale tekens in de URL URL-encoden). Het geldt alleen bij de eerste start
+#    (nieuw volume portal-pgdata); later wijzigen = ALTER USER portal PASSWORD '...' in de db-container.
 # 2. Zet onderaan bij networks > proxy > name de naam van het bestaande Docker-netwerk van je proxy.
 # 3. docker compose pull && docker compose up -d ; de proxy bereikt het portaal op http://portal:8771.
+#    De database publiceert geen poorten en zit niet op het proxy-netwerk.
 services:
   portal:
     image: ghcr.io/woutr-nl/toernooitv-portal:latest   # :main tot de eerste vX.Y.Z-tag na deze pipeline
     restart: unless-stopped
     environment:
+      PORTAL_DATABASE_URL: postgresql://portal:CHANGE-ME@db:5432/portal   # wachtwoord = POSTGRES_PASSWORD hieronder
       PORTAL_COOKIE_SECURE: "1"
       PORTAL_LEAD_TO: info@toernooitv.nl
       PORTAL_LEAD_FROM: noreply@toernooitv.nl
@@ -16,13 +21,30 @@ services:
       PORTAL_SMTP_PASS: CHANGE-ME
       PORTAL_SMTP_STARTTLS: "1"
     volumes:
-      - portal-data:/data
       - portal-uploads:/app/portal/uploads
+    depends_on:
+      db:
+        condition: service_healthy
     networks:
+      - default
       - proxy
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: portal
+      POSTGRES_USER: portal
+      POSTGRES_PASSWORD: CHANGE-ME   # zelfde wachtwoord als in PORTAL_DATABASE_URL
+    volumes:
+      - portal-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U portal -d portal"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
 volumes:
-  portal-data:
   portal-uploads:
+  portal-pgdata:
 networks:
   proxy:
     external: true

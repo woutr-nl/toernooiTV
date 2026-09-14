@@ -105,8 +105,8 @@ and get a console back: `sudo systemctl disable --now toernooitv-kiosk; sudo sys
 
 ## Portaal (beheer op afstand)
 
-`portal/portal.py` is a small hosted service (Python stdlib + SQLite, no extra
-packages) with a Dutch web UI (`portal/portal.html`, vendored React from `vendor/`).
+`portal/portal.py` is a small hosted service (Python + PostgreSQL (psycopg), see
+`portal/requirements.txt`) with a Dutch web UI (`portal/portal.html`, vendored React from `vendor/`).
 Boxes connect **outward** to it, so they work behind any club wifi/NAT without port
 forwarding.
 
@@ -131,13 +131,25 @@ portal database as soon as the box confirms it).
 pinned release, `main`/`<sha>` = development builds; see "Een release publiceren").
 The same container serves the public website at `/` and the management UI at
 **`/portal`**. All configuration lives in the `environment:` block of
-`portal/docker-compose.yml` — no `.env` file.
+`portal/docker-compose.yml` — no `.env` file. The compose file also runs the
+database: a `db` service (`postgres:16-alpine`) with its data in the `portal-pgdata`
+volume. It publishes no ports and is not on the proxy network; only the portal reaches
+it, over the compose project's internal network.
 
 1. **Start** — copy `portal/docker-compose.yml` to the VPS, fill in the `CHANGE-ME`
-   placeholders (SMTP settings and the proxy network name), then:
+   placeholders (database password, SMTP settings and the proxy network name), then:
    ```bash
    docker compose pull && docker compose up -d
    ```
+   The database password goes in **two** places that must match: `POSTGRES_PASSWORD`
+   (service `db`) and inside `PORTAL_DATABASE_URL`
+   (`postgresql://portal:<password>@db:5432/portal`, service `portal`). URL-encode
+   special characters in the URL (e.g. `@` → `%40`), or pick a password without them.
+   `POSTGRES_PASSWORD` only takes effect when the `portal-pgdata` volume is first
+   created; to change it later run
+   `docker compose exec db psql -U portal -d portal -c "ALTER USER portal PASSWORD 'new'"`,
+   then update both values and `docker compose up -d`. `db` must be healthy before the
+   portal starts (`depends_on`), and the portal retries the connection for 30 s on boot.
    One-time: a new GHCR package is private, so `pull` fails with `denied` until you
    either make it public (GitHub → Packages → `toernooitv-portal` → Package settings →
    Change visibility → **Public**, recommended) or run `docker login ghcr.io` on the
@@ -164,27 +176,34 @@ The same container serves the public website at `/` and the management UI at
    `X-Forwarded-For` is only honoured from private-network peers (the proxy). The
    session cookie is `Secure`, so the portal must be served over https
    (`PORTAL_COOKIE_SECURE=0` for a plain-http dev setup only).
-4. **Backup** — the volume `portal-data` holds `/data/portal.db` (boxes, accounts and
-   demo requests), `portal-uploads` holds `/app/portal/uploads` (logo previews). The
-   database uses WAL, so copy it with SQLite's backup API, not a plain file copy:
+4. **Backup** — the volume `portal-pgdata` holds the PostgreSQL database (boxes,
+   accounts and demo requests), `portal-uploads` holds `/app/portal/uploads` (logo
+   previews). Dump the database with `pg_dump` (consistent while the portal runs):
    ```bash
-   docker compose exec portal python3 -c "import sqlite3; sqlite3.connect('/data/portal.db').backup(sqlite3.connect('/data/backup.db'))"
-   docker compose cp portal:/data/backup.db ./portal-backup.db
-   docker compose exec portal rm /data/backup.db
+   docker compose exec -T db pg_dump -U portal -Fc portal > portal.dump
    docker compose cp portal:/app/portal/uploads ./portal-uploads-backup
    ```
-   **Restore** (the files copied in are owned by root, hence the `chown`):
+   **Restore** — stop the portal first so no request writes during the restore (the
+   uploads copied in are owned by root, hence the `chown`, which needs the container
+   running):
    ```bash
-   docker compose cp ./portal-backup.db portal:/data/restore.db
-   docker compose exec portal python3 -c "import sqlite3; sqlite3.connect('/data/restore.db').backup(sqlite3.connect('/data/portal.db'))"
-   docker compose exec portal rm /data/restore.db
+   docker compose stop portal
+   docker compose exec -T db pg_restore -U portal -d portal --clean --if-exists < portal.dump
+   docker compose start portal
    docker compose cp ./portal-uploads-backup/. portal:/app/portal/uploads/
    docker compose exec -u root portal chown -R portal /app/portal/uploads
-   docker compose restart
+   docker compose restart portal
    ```
-   **Moving from an old systemd install** — run `systemctl stop toernooitv-portal` on
-   the old host (checkpoints its WAL), then restore its `portal/portal.db` and
-   `portal/uploads/` with the restore steps above.
+
+**Local development & tests** — start a throwaway PostgreSQL, install the driver, and
+point the portal (`PORTAL_DATABASE_URL`) or the test suite (`PORTAL_TEST_DATABASE_URL`)
+at it. The tests wipe that database's `public` schema, so never aim them at real data:
+```bash
+docker run --rm -e POSTGRES_PASSWORD=portal -e POSTGRES_USER=portal -e POSTGRES_DB=portal -p 5432:5432 postgres:16-alpine
+pip install -r portal/requirements.txt
+PORTAL_DATABASE_URL=postgresql://portal:portal@localhost:5432/portal PORTAL_COOKIE_SECURE=0 python3 portal/portal.py
+PORTAL_TEST_DATABASE_URL=postgresql://portal:portal@localhost:5432/portal python3 test_portal.py
+```
 
 **Website & demo-aanvragen** — `/` is the one-pager (`portal/site.html`, no build step);
 its **Inloggen** button opens the portal. The "Plan een demo" form posts to

@@ -10,10 +10,27 @@ jobs:
     permissions:
       contents: read
       packages: write
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: portal
+          POSTGRES_USER: portal
+          POSTGRES_PASSWORD: portal
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U portal -d portal"
+          --health-interval 5s --health-timeout 3s --health-retries 12
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
       - name: Portal tests
+        env:
+          PORTAL_TEST_DATABASE_URL: postgresql://portal:portal@localhost:5432/portal
         run: |
+          pip install -r portal/requirements.txt
           python3 test_portal.py
           python3 test_portal_client.py
       - uses: docker/login-action@v3
