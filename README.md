@@ -248,7 +248,11 @@ won't recognise it any more: unlink it and link it again with the code on the TV
 **Roles**
 - *Beheerder (operator)* — all boxes, clubs and club users, link/unlink/move boxes,
   display settings, tournaments + TournamentSoftware login, app restart, box reboot,
-  software update (with outcome) and logs.
+  software update (with outcome) and logs. Via **Bekijk als club** (on Clubs & gebruikers,
+  or a club header on Schermen) the operator uses the portal exactly as that club's admin,
+  also for a club without club users; no club account or password is needed. A banner
+  "Je bekijkt als …" with **Terug naar beheer** stays visible meanwhile, and the server
+  enforces the club-level rights during it.
 - *Clubgebruiker* — only their own club's boxes: display settings, tournaments and the
   TournamentSoftware login. Everything else is refused by the server, not just hidden.
   The operator creates these accounts; everyone can change their own password.

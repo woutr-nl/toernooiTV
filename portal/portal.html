@@ -158,7 +158,7 @@ function Header({ me, route, onLogout }) {
       link('#boxes', 'Schermen', route === 'boxes' || route.startsWith('box/') || route === 'koppelen'),
       me.role === 'operator' ? link('#beheer', 'Clubs & gebruikers', route === 'beheer') : null,
       me.role === 'operator' ? link('#leads', 'Aanvragen', route === 'leads') : null,
-      link('#wachtwoord', 'Wachtwoord', route === 'wachtwoord'),
+      me.acting ? null : link('#wachtwoord', 'Wachtwoord', route === 'wachtwoord'),
       h('span', { style: { font: '600 13px ' + MONO, color: '#7d8696' } }, me.username + (me.clubName ? ' · ' + me.clubName : me.role === 'operator' ? ' · beheerder' : '')),
       h('button', { onClick: onLogout, style: { ...S.btn2, background: '#fff', color: '#0b0d11', border: 'none' } }, 'Uitloggen')) : null);
 }
@@ -200,21 +200,25 @@ function BoxCard({ b }) {
       b.synced ? null : h(Badge, { color: AMBER }, 'Wijzigingen onderweg')));
 }
 
-function Boxes({ me }) {
+function Boxes({ me, actAs }) {
   const [data, error] = usePoll('/api/boxes', 5000);
+  const [ast, arun] = useAction();
   const boxes = (data && data.boxes) || [];
   const groups = [];
-  boxes.forEach(b => { let g = groups.find(x => x.name === b.clubName); if (!g) groups.push(g = { name: b.clubName, boxes: [] }); g.boxes.push(b); });
+  boxes.forEach(b => { let g = groups.find(x => x.name === b.clubName); if (!g) groups.push(g = { name: b.clubName, clubId: b.clubId, boxes: [] }); g.boxes.push(b); });
   const online = boxes.filter(b => b.online).length;
   return h(Page, null,
     h(PageTitle, { right: me.role === 'operator' ? h('a', { href: '#koppelen', style: { ...S.btn, textDecoration: 'none' } }, '+ Box koppelen') : null },
       me.role === 'operator' ? 'Schermen' : 'Schermen · ' + (me.clubName || '')),
+    h(Msg, { text: ast.msg, bad: ast.bad }),
     h('div', { style: S.sub }, data ? (boxes.length + ' ' + (boxes.length === 1 ? 'scherm' : 'schermen') + ' · ' + online + ' online') : (error || 'Laden…')),
     data && !boxes.length ? h('div', { style: { ...S.card, ...S.sub } }, me.role === 'operator'
       ? 'Nog geen schermen gekoppeld. Zet een box aan, lees de koppelcode van de tv en klik op “Box koppelen”.'
       : 'Er zijn nog geen schermen aan jullie club gekoppeld.') : null,
     groups.map(g => h('div', { key: g.name || '-', style: { ...S.col, gap: 12 } },
-      me.role === 'operator' ? h('div', { style: { font: '700 12px ' + MONO, letterSpacing: 2, color: '#8a8578', textTransform: 'uppercase', marginTop: 8 } }, g.name || 'Zonder club') : null,
+      me.role === 'operator' ? h('div', { style: { display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', marginTop: 8 } },
+        h('span', { style: { font: '700 12px ' + MONO, letterSpacing: 2, color: '#8a8578', textTransform: 'uppercase' } }, g.name || 'Zonder club'),
+        g.clubId != null ? h('button', { onClick: () => arun(() => actAs(g.clubId)), disabled: ast.busy, style: S.btn2 }, 'Bekijk als club') : null) : null,
       h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(330px, 1fr))', gap: 16 } },
         g.boxes.map(b => h(BoxCard, { key: b.boxId, b }))))));
 }
@@ -490,7 +494,7 @@ function BoxDetail({ me, id }) {
 }
 
 // ---- clubs & users (operator) ---------------------------------------------
-function Manage() {
+function Manage({ actAs }) {
   const [clubsData, , reloadClubs] = usePoll('/api/clubs', 15000);
   const [usersData, , reloadUsers] = usePoll('/api/users', 15000);
   const reload = () => { reloadClubs(); reloadUsers(); };
@@ -513,6 +517,7 @@ function Manage() {
         h('span', { style: { font: '700 15px Archivo' } }, c.name),
         h('span', { style: { display: 'flex', alignItems: 'center', gap: 16 } },
           h('span', { style: { font: '600 13px ' + MONO, color: '#8a8578' } }, c.boxes + ' box' + (c.boxes === 1 ? '' : 'en') + ' · ' + c.users + ' gebruiker' + (c.users === 1 ? '' : 's')),
+          h('button', { onClick: () => crun(() => actAs(c.id)), disabled: cst.busy, style: S.btn2 }, 'Bekijk als club'),
           h('button', { onClick: () => delClub(c), disabled: c.boxes + c.users > 0, style: { ...S.btn2, color: RED, opacity: c.boxes + c.users > 0 ? 0.4 : 1 } }, 'Verwijderen')))),
       h('form', { onSubmit: addClub, style: { display: 'flex', gap: 10, marginTop: 18, flexWrap: 'wrap', alignItems: 'center' } },
         h(Input, { value: clubName, onChange: e => setClubName(e.target.value), placeholder: 'Naam van de club', style: { flex: 1, minWidth: 220 } }),
@@ -582,16 +587,30 @@ function App() {
     api('GET', '/api/me').then(setMe).catch(() => setMe(null));
   }, []);
   const logout = () => api('POST', '/api/logout', {}).catch(() => {}).then(() => { setMe(null); location.hash = ''; });
+  const actAs = clubId => api('POST', '/api/act-as', { clubId }).then(m => { setMe(m); location.hash = clubId == null ? '#beheer' : '#boxes'; });
   let body;
   if (me === undefined) body = h(Page, null, h('div', { style: S.sub }, 'Laden…'));
   else if (!me) body = h(Login, { onLogin: m => { setMe(m); if (!route || route === 'login') location.hash = '#boxes'; } });
   else if (route.startsWith('box/')) body = h(BoxDetail, { key: route, me, id: decodeURIComponent(route.slice(4)) });
   else if (route === 'koppelen' && me.role === 'operator') body = h(LinkBox);
-  else if (route === 'beheer' && me.role === 'operator') body = h(Manage);
+  else if (route === 'beheer' && me.role === 'operator') body = h(Manage, { actAs });
   else if (route === 'leads' && me.role === 'operator') body = h(Leads);
-  else if (route === 'wachtwoord') body = h(Password);
-  else body = h(Boxes, { me });
-  return h('div', { style: { minHeight: '100vh' } }, h(Header, { me, route, onLogout: logout }), body);
+  else if (route === 'wachtwoord' && !me.acting) body = h(Password);
+  else body = h(Boxes, { key: me.acting ? 'club-' + me.clubId : 'all', me, actAs });
+  return h('div', { style: { minHeight: '100vh' } },
+    h('div', { style: { position: 'sticky', top: 0, zIndex: 20 } },
+      h(Header, { me, route, onLogout: logout }),
+      me && me.acting ? h(ActingBanner, { me, actAs }) : null),
+    body);
+}
+
+function ActingBanner({ me, actAs }) {
+  const [st, run] = useAction();
+  return h('div', { style: { background: '#FF2E2E', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, padding: '10px 32px' } },
+    h('span', { style: { font: '800 15px Archivo' } }, 'Je bekijkt als ' + me.clubName),
+    h('span', { style: { display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' } },
+      st.bad ? h('span', { style: { font: '600 13px Archivo' } }, st.msg) : null,
+      h('button', { onClick: () => run(() => actAs(null)), disabled: st.busy, style: { ...S.btn2, border: 'none', color: '#0b0d11' } }, 'Terug naar beheer')));
 }
 
 const root = document.getElementById('root');

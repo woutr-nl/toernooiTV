@@ -140,7 +140,7 @@ class PortalTest(PortalBase):
         self.assertGreaterEqual(time.time() - t0, portal.LOGIN_DELAY)
         self.assertEqual(self.req("POST", "/api/login", {"username": "nobody", "password": "x"}, csrf=False)[0], 401)
         self.assertEqual(self.req("GET", "/api/me", token=self.op)[1],
-                         {"username": "admin", "role": "operator", "clubId": None, "clubName": None})
+                         {"username": "admin", "role": "operator", "clubId": None, "clubName": None, "acting": False})
         (h, salt), = self.db("SELECT pass_hash, salt FROM users WHERE username='admin'")
         self.assertNotIn("adminpass1", h)
         self.assertEqual((len(h), len(salt)), (128, 32))
@@ -284,6 +284,101 @@ class PortalTest(PortalBase):
         self.assertNotIn("JOURNAL-LINE-42", json.dumps(op_detail))
         self.assertNotIn("JOURNAL-LINE-42", json.dumps(self.req("GET", "/api/boxes/box-a", token=tok_a)[1]))
         self.assertEqual(self.req("GET", "/api/boxes/box-a/logs", token=self.op)[1]["logs"], "JOURNAL-LINE-42")
+
+    def act_as_setup(self):
+        """Clubs A (box-a) and B (box-b), then a second operator session acting as club A."""
+        club_a = self.req("POST", "/api/clubs", {"name": "Club A"}, self.op)[1]["id"]
+        club_b = self.req("POST", "/api/clubs", {"name": "Club B"}, self.op)[1]["id"]
+        self.linked_box(club_a, "box-a", "AAA-AAA")
+        self.linked_box(club_b, "box-b", "BBB-BBB", secret="second-" + "b" * 30)
+        act = self.login("admin", "adminpass1")
+        s, me = self.req("POST", "/api/act-as", {"clubId": club_a}, act)
+        self.assertEqual((s, me), (200, {"username": "admin", "role": "club", "clubId": club_a,
+                                         "clubName": "Club A", "acting": True}))
+        return club_a, club_b, act
+
+    def test_act_as_scoping(self):
+        club_a, _, act = self.act_as_setup()
+        self.assertEqual(self.req("GET", "/api/me", token=act)[1]["clubName"], "Club A")  # persists in the session
+        self.assertTrue(self.req("GET", "/api/me", token=act)[1]["acting"])
+        self.assertEqual([b["boxId"] for b in self.req("GET", "/api/boxes", token=act)[1]["boxes"]], ["box-a"])
+        for method, path, body in (("GET", "/api/boxes/box-b", None),
+                                   ("POST", "/api/boxes/box-b/display", {"display": {"clubName": "hack"}}),
+                                   ("POST", "/api/boxes/box-b/tournaments", {"tournaments": []})):
+            self.assertEqual(self.req(method, path, body, act)[0], 404, path)
+        # the operator's other session is untouched
+        self.assertEqual(self.req("GET", "/api/clubs", token=self.op)[0], 200)
+        self.assertEqual(len(self.req("GET", "/api/boxes", token=self.op)[1]["boxes"]), 2)
+        self.assertFalse(self.req("GET", "/api/me", token=self.op)[1]["acting"])
+        # another club's logo preview: visible to the operator, not while acting
+        self.assertEqual(self.req("POST", "/api/boxes/box-b/display", {"display": {"clubLogo": PNG_URL}}, self.op)[0], 200)
+        preview = self.req("GET", "/api/boxes/box-b", token=self.op)[1]["logos"]["clubLogo"]["preview"]
+        self.assertEqual(self.raw("GET", preview, token=self.op)[0], 200)
+        self.assertEqual(self.raw("GET", preview, token=act)[0], 404)
+
+    def test_act_as_operator_endpoints_refused(self):
+        club_a, club_b, act = self.act_as_setup()
+        self.req("POST", "/api/boxes/box-a/command", {"kind": "logs"}, self.op)
+        self.req("POST", "/api/boxes/box-a/command", {"kind": "restart"}, self.op)
+        for method, path, body in (("GET", "/api/clubs", None), ("GET", "/api/users", None), ("GET", "/api/leads", None),
+                                   ("POST", "/api/boxes/link", {"code": "AAA-AAA", "clubId": club_a}),
+                                   ("POST", "/api/boxes/box-a/command", {"kind": "restart"}),
+                                   ("GET", "/api/boxes/box-a/logs", None),
+                                   ("POST", "/api/boxes/box-a", {"clubId": club_b}),
+                                   ("POST", "/api/boxes/box-a/unlink", {})):
+            self.assertEqual(self.req(method, path, body, act)[0], 403, path)
+        self.assertEqual(self.db("SELECT COUNT(*) FROM commands")[0][0], 2)
+        before = self.db("SELECT pass_hash FROM users WHERE username='admin'")
+        self.assertEqual(self.req("POST", "/api/password", {"old": "adminpass1", "new": "otherpass1"}, act)[0], 403)
+        self.assertEqual(self.db("SELECT pass_hash FROM users WHERE username='admin'"), before)
+        d = self.req("GET", "/api/boxes/box-a", token=act)[1]
+        self.assertIsNone(d["logsAt"])
+        self.assertFalse({c["kind"] for c in d["commands"]} & set(portal.BOX_COMMANDS))
+        self.assertEqual({c["kind"] for c in self.req("GET", "/api/boxes/box-a", token=self.op)[1]["commands"]},
+                         {"logs", "restart"})
+
+    def test_act_as_club_edits_work(self):
+        _, _, act = self.act_as_setup()
+        for path, body in (("display", {"display": {"clubName": "Via beheer"}}),
+                           ("tournaments", {"tournaments": [{"code": "t7", "label": "Zomer"}]})):
+            s, out = self.req("POST", "/api/boxes/box-a/" + path, body, act)
+            self.assertEqual(s, 200, (path, out))
+        desired = json.loads(self.db("SELECT desired FROM boxes WHERE box_id='box-a'")[0][0])
+        self.assertEqual(desired["display"]["clubName"], "Via beheer")
+        self.assertEqual(desired["tournaments"][0]["code"], "t7")
+        # a newer credential command replaces the queued one, so check each right after it lands
+        for path, body, kind in (("login", {"user": "ts", "password": TS_PASS}, "set_login"),
+                                 ("cookie", {"cookie": TS_COOKIE}, "set_cookie")):
+            s, out = self.req("POST", "/api/boxes/box-a/" + path, body, act)
+            self.assertEqual(s, 200, (path, out))
+            self.assertEqual([r[0] for r in self.db("SELECT kind FROM commands WHERE box_id='box-a'")], [kind])
+
+    def test_act_as_stop_and_club_user_refused(self):
+        club_a, club_b, act = self.act_as_setup()
+        s, me = self.req("POST", "/api/act-as", {"clubId": None}, act)
+        self.assertEqual((s, me), (200, {"username": "admin", "role": "operator", "clubId": None,
+                                         "clubName": None, "acting": False}))
+        self.assertEqual(self.req("GET", "/api/clubs", token=act)[0], 200)
+        self.assertEqual(len(self.req("GET", "/api/boxes", token=act)[1]["boxes"]), 2)
+        # bad input never silently stops or starts acting
+        self.assertEqual(self.req("POST", "/api/act-as", {"clubId": club_a}, act)[0], 200)
+        for bad in (999999, "abc"):
+            self.assertEqual(self.req("POST", "/api/act-as", {"clubId": bad}, act)[0], 400)
+        self.assertEqual(self.req("GET", "/api/me", token=act)[1]["clubId"], club_a)
+        self.assertEqual(self.req("POST", "/api/act-as", {}, act)[1]["acting"], False)
+        # a club without users or boxes can be entered
+        empty = self.req("POST", "/api/clubs", {"name": "Leeg"}, self.op)[1]["id"]
+        self.assertEqual(self.req("POST", "/api/act-as", {"clubId": empty}, act)[1]["clubName"], "Leeg")
+        self.assertEqual(self.req("GET", "/api/boxes", token=act)[1], {"boxes": []})
+        # club users can neither start nor stop
+        _, tok = self.club_with_user("Club C", "userc")
+        for body in ({"clubId": club_b}, {"clubId": None}, {}):
+            self.assertEqual(self.req("POST", "/api/act-as", body, tok)[0], 403)
+        self.assertEqual(self.req("GET", "/api/me", token=tok)[1]["clubName"], "Club C")
+        self.assertEqual(self.req("GET", "/api/boxes", token=tok)[1], {"boxes": []})
+        # logout ends it with the session
+        self.assertEqual(self.req("POST", "/api/logout", {}, act)[0], 200)
+        self.assertEqual(self.req("GET", "/api/me", token=act)[0], 401)
 
     def test_reassign_box(self):
         club_a, tok_a = self.club_with_user("Club A", "usera")
