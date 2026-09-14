@@ -36,11 +36,26 @@ Turn the Pi into a device you plug into any TV: on boot it starts the server,
 shows the fullscreen display on its own HDMI, and — if it can't find a known
 wifi — raises a setup hotspot so you can join the venue's wifi from a phone.
 
-**Install once** on a fresh, supported Raspberry Pi OS (any normal user, any home
-directory). Prerequisites: the checkout is owned by that non-root user, lives on a
-path **without spaces**, and `origin` is fetchable from the box without
-interaction (public repo, or a read-only token baked into the remote URL) —
-updates pull from it.
+**Install once** on a fresh, supported Raspberry Pi OS, from a normal (non-root)
+user's shell:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/woutr-nl/toernooiTV/main/install.sh | sudo bash
+```
+
+It installs git, clones the repo as your user into `~/toernooi-tv`, checks out the
+newest release (`v*` tag; it stays on `main` when none exist yet), runs
+`install-kiosk.sh` and prints the next steps (reboot, `verify-appliance.sh`). It is
+safe to re-run: an existing checkout is fetched instead of cloned. Optional
+overrides: `TOERNOOITV_USER` (the box's user instead of the one running sudo),
+`TOERNOOITV_DIR` (checkout path, without spaces) and `TOERNOOITV_REBOOT=1` (reboot
+at the end), e.g.
+`curl -fsSL https://raw.githubusercontent.com/woutr-nl/toernooiTV/main/install.sh | sudo TOERNOOITV_REBOOT=1 bash`.
+
+**Manual alternative** (any normal user, any home directory). Prerequisites: the
+checkout is owned by that non-root user, lives on a path **without spaces**, and
+`origin` is fetchable from the box without interaction (public repo, or a read-only
+token baked into the remote URL) — updates pull from it.
 
 ```bash
 sudo apt install -y git
