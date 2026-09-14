@@ -79,6 +79,14 @@ What it sets up:
 - `comitup` → wifi onboarding. No known wifi ⇒ the Pi broadcasts
   **`ToernooiTV-setup-…`**; connect a phone, the captive portal (`http://10.41.0.1`)
   lets you pick the venue's wifi + enter its password. Saved networks auto-join next time.
+  comitup's own web portal (`comitup-web`) is masked: our server serves a simple,
+  phone-sized wifi page at `/setup` (every unknown URL redirects there while the
+  hotspot is up) and drives comitup over D-Bus. `/beheer` keeps the full dashboard,
+  including its wifi card. `GET /wifi` also reports `radio` (`ok`/`blocked`/`unavailable`)
+  and `scanError`, so both pages explain an empty network list.
+- Wifi country **NL** (`raspi-config nonint do_wifi_country NL`, or `iw reg set NL` +
+  `cfg80211 ieee80211_regdom=NL`) and `rfkill unblock wifi` — without a country a
+  fresh Pi OS keeps the radio soft-blocked and no hotspot is broadcast.
 
 The UI is fully **self-hosted** — React and fonts are vendored in `vendor/`, so the
 screen renders even on captive/blocked networks. (Live match data still needs
@@ -93,6 +101,18 @@ internet + a valid cookie; without it the display falls back to demo data.)
   unreachable for ~60s (the server itself restarts via systemd `Restart=always`),
   plus a daily 04:00 refresh. Fed by the `/status` endpoint
   (`{ online, ssid, ip, setupMode, hotspotName }`).
+- **Hotspot DHCP watchdog** (`toernooitv-hotspot-dhcp.timer`, every 30 s, as root,
+  script `appliance/hotspot-dhcp.sh`). comitup 1.43 starts the hotspot's dnsmasq from a
+  NetworkManager callback; in the field that callback was sometimes missed, so the
+  hotspot was visible but phones got no IP. The root cause is unconfirmed, so instead of
+  patching comitup we enforce the invariant: wlan0 on `ToernooiTV-setup…` and no
+  dnsmasq with comitup's `dns-hotspot.conf` ⇒ start one (in its own transient unit,
+  `toernooitv-hotspot-dnsmasq`). It uses comitup's conf and pid-file, so comitup still
+  stops it when it joins a network. comitup's own unit already starts after
+  NetworkManager, so no ordering drop-in is added. `verbose: 1` in
+  `appliance/comitup.conf` writes diagnostics to `/var/log/comitup.log`
+  ("Running dnsmasq", "nmm - primary state"); watchdog actions log to
+  `journalctl -t toernooitv-hotspot-dhcp`.
 
 Logs: `journalctl -u toernooitv-server -u toernooitv-kiosk -b`. To stop the kiosk
 and get a console back: `sudo systemctl disable --now toernooitv-kiosk; sudo systemctl enable --now getty@tty1`.

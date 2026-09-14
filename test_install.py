@@ -42,6 +42,19 @@ class InstallTest(unittest.TestCase):
         r = subprocess.run(["bash", "-n", SCRIPT], capture_output=True, text=True)
         self.assertEqual(r.returncode, 0, r.stderr)
 
+    def test_kiosk_wifi_country_steps(self):
+        with open(os.path.join(HERE, "install-kiosk.sh"), encoding="utf-8") as f:
+            s = f.read()
+        for needle in ("do_wifi_country NL", "iw reg set NL", "ieee80211_regdom=NL", "rfkill unblock wifi"):
+            self.assertIn(needle, s)
+        self.assertLess(s.index("rfkill unblock wifi"), s.index("enable comitup"))
+        self.assertIn("enable --now toernooitv-hotspot-dhcp.timer", s)
+
+    def test_kiosk_scripts_syntax(self):
+        for script in ("install-kiosk.sh", "verify-appliance.sh", "appliance/hotspot-dhcp.sh"):
+            r = subprocess.run(["bash", "-n", os.path.join(HERE, script)], capture_output=True, text=True)
+            self.assertEqual(r.returncode, 0, script + ": " + r.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()

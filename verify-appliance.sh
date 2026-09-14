@@ -71,6 +71,30 @@ fi
 echo "== wifi =="
 ssid=$(nmcli -t -f ACTIVE,SSID dev wifi 2>/dev/null | awk -F: '/^yes:/{print $2}')
 note "active SSID: ${ssid:-<none / on setup hotspot>}"
+if command -v rfkill >/dev/null 2>&1; then
+  rfkill list wifi 2>/dev/null | grep -qi "blocked: yes" \
+    && bad "wifi radio blocked (rfkill) — run: sudo rfkill unblock wifi + set the wifi country" \
+    || ok "wifi radio not blocked"
+else
+  note "rfkill not present — skipping radio block check"
+fi
+wstate=$(nmcli -t -f DEVICE,TYPE,STATE dev 2>/dev/null | awk -F: '$2=="wifi"{print $3; exit}')
+case "$wstate" in
+  "") bad "no wifi device found by nmcli";;
+  unavailable*|unmanaged*) bad "wlan unavailable (wifi country not set? re-run the installer)";;
+  *) ok "wlan available ($wstate)";;
+esac
+ap=$(nmcli -t -f GENERAL.CONNECTION dev show wlan0 2>/dev/null | cut -d: -f2-)
+case "$ap" in
+  ToernooiTV-setup*)
+    pgrep -f "dnsmasq.*dns-hotspot.conf" >/dev/null 2>&1 \
+      && ok "hotspot up and dnsmasq serving it" \
+      || bad "hotspot up but no dnsmasq (phones get no IP) — check toernooitv-hotspot-dhcp.timer";;
+  *) note "not in hotspot mode — dnsmasq check skipped";;
+esac
+systemctl is-active --quiet toernooitv-hotspot-dhcp.timer \
+  && ok "hotspot DHCP watchdog timer active" \
+  || bad "toernooitv-hotspot-dhcp.timer not active (re-run the installer)"
 
 ip=$(hostname -I 2>/dev/null | awk '{print $1}')
 echo
