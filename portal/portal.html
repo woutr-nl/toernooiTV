@@ -157,6 +157,7 @@ function Header({ me, route, onLogout }) {
     me ? h('div', { style: { display: 'flex', alignItems: 'center', gap: 22, flexWrap: 'wrap' } },
       link('#boxes', 'Schermen', route === 'boxes' || route.startsWith('box/') || route === 'koppelen'),
       me.role === 'operator' ? link('#beheer', 'Clubs & gebruikers', route === 'beheer') : null,
+      me.role === 'operator' ? link('#leads', 'Aanvragen', route === 'leads') : null,
       link('#wachtwoord', 'Wachtwoord', route === 'wachtwoord'),
       h('span', { style: { font: '600 13px ' + MONO, color: '#7d8696' } }, me.username + (me.clubName ? ' · ' + me.clubName : me.role === 'operator' ? ' · beheerder' : '')),
       h('button', { onClick: onLogout, style: { ...S.btn2, background: '#fff', color: '#0b0d11', border: 'none' } }, 'Uitloggen')) : null);
@@ -533,6 +534,29 @@ function Manage() {
       h('div', { style: { marginTop: 10 } }, h(Msg, { text: ust.msg, bad: ust.bad }))));
 }
 
+// ---- demo requests from the website (operator) -----------------------------
+function Leads() {
+  const [data, error] = usePoll('/api/leads', 15000);
+  const leads = (data && data.leads) || [];
+  const mail = l => l.emailed === true ? h(Badge, { color: GREEN }, 'mail verstuurd')
+    : l.emailed === false ? h(Badge, { color: RED }, 'mail mislukt') : h(Badge, { color: GREY }, 'geen mail verstuurd');
+  const line = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' };
+  return h(Page, { width: 1000 },
+    h(PageTitle, null, 'Demo-aanvragen'),
+    h('div', { style: S.sub }, data ? leads.length + ' ' + (leads.length === 1 ? 'aanvraag' : 'aanvragen') + ' via het formulier op de website' : (error || 'Laden…')),
+    data && !leads.length ? h('div', { style: { ...S.card, ...S.sub } }, 'Nog geen aanvragen — de website staat op /') : null,
+    leads.map(l => h('div', { key: l.id, style: { ...S.card, padding: '22px 24px', display: 'flex', flexDirection: 'column', gap: 10 } },
+      h('div', { style: line },
+        h('span', { style: { display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' } },
+          h('span', { style: { font: '800 18px Archivo' } }, l.name),
+          l.club ? h('span', { style: S.chip }, l.club.toUpperCase()) : null),
+        h('span', { style: { font: '600 12px ' + MONO, color: '#8a8578' } }, when(l.created))),
+      h('div', { style: line },
+        h('a', { href: 'mailto:' + l.email, style: { font: '600 14px ' + MONO, wordBreak: 'break-all' } }, l.email),
+        mail(l)),
+      l.message ? h('div', { style: { ...S.sub, color: '#56524a', whiteSpace: 'pre-wrap', wordBreak: 'break-word' } }, l.message) : null)));
+}
+
 function Password() {
   const [f, setF] = useState({ old: '', new1: '', new2: '' });
   const [st, run, setSt] = useAction();
@@ -564,6 +588,7 @@ function App() {
   else if (route.startsWith('box/')) body = h(BoxDetail, { key: route, me, id: decodeURIComponent(route.slice(4)) });
   else if (route === 'koppelen' && me.role === 'operator') body = h(LinkBox);
   else if (route === 'beheer' && me.role === 'operator') body = h(Manage);
+  else if (route === 'leads' && me.role === 'operator') body = h(Leads);
   else if (route === 'wachtwoord') body = h(Password);
   else body = h(Boxes, { me });
   return h('div', { style: { minHeight: '100vh' } }, h(Header, { me, route, onLogout: logout }), body);

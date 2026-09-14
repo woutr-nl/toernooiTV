@@ -12,7 +12,12 @@ Run:
     python3 portal/portal.py                                  # serves 127.0.0.1:8771
 
 Env: PORTAL_HOST, PORTAL_PORT, PORTAL_DB (default portal/portal.db),
-     PORTAL_COOKIE_SECURE=0 to allow the session cookie over plain http (dev only).
+     PORTAL_COOKIE_SECURE=0 to allow the session cookie over plain http (dev only),
+     PORTAL_LEAD_TO (default info@toernooitv.nl), PORTAL_LEAD_FROM, PORTAL_SMTP_HOST
+     (empty = demo requests are stored but not mailed), PORTAL_SMTP_PORT (587; 465 = SSL),
+     PORTAL_SMTP_USER, PORTAL_SMTP_PASS, PORTAL_SMTP_STARTTLS=0 to skip STARTTLS.
+
+The public website (site.html) is served at /, the management UI at /portal.
 """
 
 import base64
@@ -27,22 +32,34 @@ import mimetypes
 import os
 import re
 import secrets
+import smtplib
 import sqlite3
 import sys
 import threading
 import time
 import traceback
 import urllib.parse
+from email.message import EmailMessage
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 HTML_PATH = os.path.join(HERE, "portal.html")
+SITE_PATH = os.path.join(HERE, "site.html")
 VENDOR_DIR = os.path.join(os.path.dirname(HERE), "vendor")
 UPLOADS_DIR = os.path.join(HERE, "uploads")  # portal-side logo previews
 DB_PATH = os.environ.get("PORTAL_DB", os.path.join(HERE, "portal.db"))
 HOST = os.environ.get("PORTAL_HOST", "127.0.0.1")
 PORT = int(os.environ.get("PORTAL_PORT", "8771"))
 COOKIE_SECURE = os.environ.get("PORTAL_COOKIE_SECURE", "1") != "0"
+LEAD_TO = os.environ.get("PORTAL_LEAD_TO", "info@toernooitv.nl")
+SMTP_HOST = os.environ.get("PORTAL_SMTP_HOST", "")  # empty = don't send (leads still stored)
+SMTP_PORT = int(os.environ.get("PORTAL_SMTP_PORT", "587"))
+SMTP_USER = os.environ.get("PORTAL_SMTP_USER", "")
+SMTP_PASS = os.environ.get("PORTAL_SMTP_PASS", "")
+SMTP_STARTTLS = os.environ.get("PORTAL_SMTP_STARTTLS", "1") != "0"
+LEAD_FROM = os.environ.get("PORTAL_LEAD_FROM", SMTP_USER or "noreply@toernooitv.nl")
+DEMO_LIMIT, DEMO_WINDOW = 3, 900  # max 3 demo requests per IP per 15 min
+DEMO_MAX_BODY = 16384
 
 SESSION_COOKIE = "portal_session"
 SESSION_TTL = 30 * 86400
@@ -77,6 +94,10 @@ CREATE TABLE IF NOT EXISTS commands(
   id INTEGER PRIMARY KEY AUTOINCREMENT, box_id TEXT NOT NULL, kind TEXT NOT NULL, payload TEXT,
   status TEXT DEFAULT 'queued', result TEXT, ok INTEGER, created REAL, sent_at REAL, done_at REAL);
 CREATE INDEX IF NOT EXISTS commands_box ON commands(box_id, status);
+CREATE TABLE IF NOT EXISTS leads(
+  id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, club TEXT DEFAULT '', email TEXT NOT NULL,
+  message TEXT DEFAULT '', created REAL,
+  emailed INTEGER);  -- NULL = no mail sent (not configured / pending), 1 = sent, 0 = failed
 """
 
 
@@ -225,6 +246,73 @@ def _queue(c, box_id, kind, payload=None):
     return {"ok": True, "commandId": cur.lastrowid}
 
 
+# ---- demo requests (public website) -----------------------------------------
+_demo_hits = {}  # ip -> [timestamps]
+_demo_lock = threading.Lock()
+
+
+def _throttle(ip):
+    # ponytail: in-memory per-IP window, resets on restart — persist to sqlite if abuse ever outlives restarts
+    now = time.time()
+    with _demo_lock:
+        for k in list(_demo_hits):
+            _demo_hits[k] = [t for t in _demo_hits[k] if now - t < DEMO_WINDOW]
+            if not _demo_hits[k]:
+                del _demo_hits[k]
+        hits = _demo_hits.setdefault(ip, [])
+        if len(hits) >= DEMO_LIMIT:
+            raise Fail(429, "Te veel aanvragen — probeer het later nog eens")
+        hits.append(now)
+
+
+def _client_ip(handler):
+    ip = handler.client_address[0]
+    fwd = handler.headers.get("X-Forwarded-For")
+    if fwd and ip in ("127.0.0.1", "::1"):  # via the local reverse proxy: it appends the real client last
+        return fwd.split(",")[-1].strip() or ip
+    return ip
+
+
+def notify_lead(lead):
+    """Mail a demo request to LEAD_TO. True = sent, False = failed, None = SMTP not configured. Never raises."""
+    if not SMTP_HOST:
+        print("PORTAL_SMTP_HOST leeg — geen mail verstuurd voor demo-aanvraag")
+        return None
+    try:
+        msg = EmailMessage()
+        msg["From"], msg["To"], msg["Reply-To"] = LEAD_FROM, LEAD_TO, lead["email"]
+        msg["Subject"] = "Nieuwe demo-aanvraag — %s%s" % (lead["name"], " (%s)" % lead["club"] if lead["club"] else "")
+        msg.set_content("Naam: %s\nClub: %s\nE-mail: %s\nTijdstip: %s\n\nBericht:\n%s\n" % (
+            lead["name"], lead["club"] or "-", lead["email"],
+            time.strftime("%d-%m-%Y %H:%M", time.localtime(lead["created"])), lead["message"] or "-"))
+        if SMTP_PORT == 465:
+            smtp = smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT, timeout=15)
+        else:
+            smtp = smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=15)
+        with smtp:
+            if SMTP_PORT != 465 and SMTP_STARTTLS:
+                smtp.starttls()
+            if SMTP_USER:
+                smtp.login(SMTP_USER, SMTP_PASS)
+            smtp.send_message(msg)
+        return True
+    except Exception:  # noqa: BLE001
+        traceback.print_exc()
+        return False
+
+
+def _record_notify(lead_id, lead):
+    sent = notify_lead(lead)
+    if sent is not None:
+        with _db_lock, _db() as c:
+            c.execute("UPDATE leads SET emailed=? WHERE id=?", (1 if sent else 0, lead_id))
+
+
+def _notify_async(lead_id, lead):
+    # the visitor never waits on (or fails because of) the mail server
+    threading.Thread(target=_record_notify, args=(lead_id, lead), daemon=True).start()
+
+
 # ---- HTTP -------------------------------------------------------------------
 ROUTES = [  # (method, path regex, handler, who: None = public, "user", "operator")
     ("POST", r"/api/box/sync", "box_sync", None),
@@ -250,6 +338,8 @@ ROUTES = [  # (method, path regex, handler, who: None = public, "user", "operato
     ("POST", r"/api/users", "user_create", "operator"),
     ("DELETE", r"/api/users/(\d+)", "user_delete", "operator"),
     ("POST", r"/api/users/(\d+)/password", "user_password", "operator"),
+    ("POST", r"/api/demo", "demo", None),
+    ("GET", r"/api/leads", "leads", "operator"),
 ]
 
 
@@ -359,14 +449,17 @@ class Handler(BaseHTTPRequestHandler):
             user = self._user()
             if who == "operator" and user["role"] != "operator":
                 raise Fail(403, "Alleen voor de beheerder")
-        body = self._body() if method != "GET" else {}
+        if fn == "demo" and int(self.headers.get("Content-Length") or 0) > DEMO_MAX_BODY:
+            raise Fail(413, "Verzoek te groot")
+        body =self._body() if method != "GET" else {}
         out = getattr(self, "api_" + fn)(user, body, *match.groups())
         obj, headers = out if isinstance(out, tuple) else (out, ())
         self._json(obj, 200, headers)
 
     def _static(self, path):
-        if path in ("/", "/index.html"):
-            return self._file(HTML_PATH, [
+        page = SITE_PATH if path in ("/", "/index.html") else HTML_PATH if path in ("/portal", "/portal/") else None
+        if page:
+            return self._file(page, [
                 ("Cache-Control", "no-store"),
                 ("Content-Security-Policy", "default-src 'self'; img-src 'self' data:; style-src 'self' "
                  "'unsafe-inline'; script-src 'self' 'unsafe-inline'; frame-ancestors 'none'")])
@@ -721,6 +814,30 @@ class Handler(BaseHTTPRequestHandler):
             c.execute("UPDATE users SET pass_hash=?, salt=? WHERE id=?", (h, salt, user_id))
             c.execute("DELETE FROM sessions WHERE user_id=?", (user_id,))
         return {"ok": True}
+
+    # -- demo requests from the public website --
+    def api_demo(self, _user, body):
+        if str(body.get("website") or "").strip():
+            return {"ok": True}  # honeypot filled: a bot — pretend success, store nothing
+        _throttle(_client_ip(self))
+        name = " ".join(str(body.get("name") or "").split())[:120]
+        club = " ".join(str(body.get("club") or "").split())[:120]
+        email = str(body.get("email") or "").strip()[:200]
+        message = str(body.get("message") or "").strip()[:2000]
+        if not name or not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", email):
+            raise Fail(400, "Vul je naam en een geldig e-mailadres in.")
+        lead = {"name": name, "club": club, "email": email, "message": message, "created": time.time()}
+        with _db_lock, _db() as c:
+            lead_id = c.execute("INSERT INTO leads(name, club, email, message, created) VALUES (?,?,?,?,?)",
+                                (name, club, email, message, lead["created"])).lastrowid
+        _notify_async(lead_id, lead)
+        return {"ok": True}
+
+    def api_leads(self, _user, _body):
+        with _db() as c:
+            rows = c.execute("SELECT id, name, club, email, message, created, emailed FROM leads "
+                             "ORDER BY id DESC LIMIT 500").fetchall()
+        return {"leads": [{**dict(r), "emailed": None if r["emailed"] is None else bool(r["emailed"])} for r in rows]}
 
 
 def main(argv):
