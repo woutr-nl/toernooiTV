@@ -1,0 +1,6 @@
+*
+!portal/
+!vendor/
+portal/portal.db*
+portal/uploads/
+**/__pycache__
