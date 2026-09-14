@@ -155,9 +155,16 @@ running on its last settings. The TournamentSoftware password and cookie are nev
 sent to the portal (a new login travels portal → box once and is wiped from the
 portal database as soon as the box confirms it).
 
-- `TP_PORTAL_URL` (server env) — default `https://portal.toernooitv.nl`. Only
+- `TP_PORTAL_URL` (server env) — default `https://toernooitv.nl`. Only
   `https://` is used (plain `http://` only to `localhost`/`127.0.0.1` for testing);
-  set it empty to disable syncing.
+  set it empty to disable syncing. Boxes that got a manual workaround drop-in
+  (`/etc/systemd/system/toernooitv-server.service.d/*.conf` setting
+  `TP_PORTAL_URL=https://toernooitv.nl`) no longer need it: remove the file, then
+  `sudo systemctl daemon-reload && sudo systemctl restart toernooitv-server`.
+- Sync failures (TLS, DNS, timeouts, HTTP errors) are logged to
+  `journalctl -u toernooitv-server` (first failure, on a changed reason, then at most
+  every 10 minutes, plus one line on recovery) and reported as `portal` in `/status`.
+  `verify-appliance.sh` also checks that the portal answers.
 - Each box authenticates with its box-ID plus a secret generated on first contact
   (stored in `config.json` → `portal`; the portal keeps only a hash).
 
@@ -206,6 +213,8 @@ it, over the compose project's internal network.
        reverse_proxy portal:8771
    }
    ```
+   Boxes sync to `toernooitv.nl` by default; `portal.toernooitv.nl` remains the name
+   for the management UI once its certificate is in place.
    With nginx, also set `client_max_body_size 20m;` (logo uploads) and pass
    `X-Forwarded-For $proxy_add_x_forwarded_for` (the demo-form throttle uses it).
    `X-Forwarded-For` is only honoured from private-network peers (the proxy). The
@@ -258,7 +267,8 @@ Port `465` uses SSL; any other port uses STARTTLS unless `PORTAL_SMTP_STARTTLS=0
 (e.g. a local relay).
 
 **Linking a box** — an unlinked box that reaches the portal shows
-**Portaal-koppelcode: ABC-123** at the bottom of the TV. The operator clicks
+**Portaal-koppelcode: ABC-123** at the bottom of the TV (if the box can't reach the
+portal, the TV shows `Portaal niet bereikbaar — <reden>` instead of the code). The operator clicks
 **Box koppelen**, enters that code (valid while the box is online), picks the club and
 a name. The portal starts from the box's current settings. **Ontkoppelen** removes the
 box from the portal; it shows a new code again and its local `/beheer` is fully
@@ -360,8 +370,10 @@ they are carried over to the box once.
   `display` may be partial; logos are sent as data-URLs and come back as
   `/uploads/…` URLs (a rejected logo keeps the old one and adds `warning`).
 - `/uploads/…` — uploaded logos
-- `/status` — `{ online, ssid, ip, setupMode, hotspotName, version, boxId, managed, linkCode? }`
+- `/status` — `{ online, ssid, ip, setupMode, hotspotName, version, boxId, managed, linkCode?, portal? }`
   (`linkCode` only while the box is not linked to the portal)
+  `portal = { ok, lastOk (epoch s or null), error (Dutch reason or null) }`, present whenever
+  portal sync is enabled; the TV only shows `linkCode` as usable while `portal.ok` is true.
 - `/config` also returns `managed` and `portalName`; on a portal-managed box
   `POST /config` and `POST /login` return 403
 - `/health` — `{ ok, cookieSet, tournaments, version, boxId }`

@@ -38,6 +38,7 @@ import os
 import re
 import secrets
 import socket
+import ssl
 import subprocess
 import sys
 import threading
@@ -171,8 +172,10 @@ _NL_MON = ["jan", "feb", "mrt", "apr", "mei", "jun", "jul", "aug", "sep", "okt",
 UA = "Mozilla/5.0 (ToernooiTV-proxy)"
 
 # Remote portal. Empty TP_PORTAL_URL disables syncing (dev/tests).
-PORTAL_URL = os.environ.get("TP_PORTAL_URL", "https://portal.toernooitv.nl")
+PORTAL_URL = os.environ.get("TP_PORTAL_URL", "https://toernooitv.nl")
 PORTAL_INTERVAL = 10  # seconds between syncs (portal delivery SLA is ~30 s)
+PORTAL_STALE = 6 * PORTAL_INTERVAL  # older last success = portal not reachable (portal LINK_WINDOW is 120 s)
+PORTAL_LOG_EVERY = 600  # min seconds between repeated identical sync-failure log lines
 MANAGED_MSG = "Dit scherm wordt beheerd via het Toernooi TV-portaal"
 SUDO_MSG = "Niet toegestaan op deze box — draai install-kiosk.sh opnieuw"
 _LINK_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"  # no 0/O/1/I
@@ -1041,8 +1044,10 @@ def _new_link_code():
 
 _link = {"code": _new_link_code()}  # shown on the TV while unlinked; new per start
 # results: command results resent until a sync succeeds; warnings: from the last
-# applied portal config; myT: the account's tournaments (portal-side picker)
-_psync = {"results": [], "warnings": [], "myT": None, "myTs": 0.0, "authWarned": False}
+# applied portal config; myT: the account's tournaments (portal-side picker);
+# lastOk/lastError/lastErrorAt: sync health; errLoggedAt: failure log rate limit
+_psync = {"results": [], "warnings": [], "myT": None, "myTs": 0.0,
+          "lastOk": 0.0, "lastError": "", "lastErrorAt": 0.0, "errLoggedAt": 0.0}
 _sync_lock = threading.Lock()  # one sync cycle at a time
 _FATAL = ("restart", "reboot", "update")
 
@@ -1057,6 +1062,11 @@ def _portal_status():
     out = {"managed": _managed()}
     if _portal_url_ok(PORTAL_URL) and not out["managed"]:
         out["linkCode"] = _link["code"]
+    if _portal_url_ok(PORTAL_URL):  # the TV only presents linkCode as usable while ok
+        out["portal"] = {"ok": bool(_psync["lastOk"]) and not _psync["lastError"]
+                         and time.time() - _psync["lastOk"] <= PORTAL_STALE,
+                         "lastOk": _psync["lastOk"] or None,
+                         "error": _psync["lastError"] or None}
     return out
 
 
@@ -1240,6 +1250,38 @@ def _run_commands(cmds):
         _psync["results"].append({"id": cid, "ok": ok, "output": out})
 
 
+def _sync_error_msg(e):
+    """Short Dutch reason for a failed sync (shown on the TV and logged)."""
+    if isinstance(e, urllib.error.HTTPError):
+        if e.code == 401:
+            return "box niet herkend (401) — ontkoppel en koppel hem opnieuw in het portaal"
+        return "portaal gaf HTTP %d" % e.code
+    if isinstance(e, (json.JSONDecodeError, UnicodeDecodeError)):  # both carry their own .reason
+        return "ongeldig antwoord"
+    reason = getattr(e, "reason", e)  # URLError wraps the socket/TLS error
+    if isinstance(reason, ssl.SSLError) or (isinstance(e, urllib.error.URLError) and
+                                            ("SSL" in str(reason).upper() or "CERTIFICATE" in str(reason).upper())):
+        return "certificaat/TLS-fout"
+    if isinstance(reason, socket.gaierror):
+        return "portaal niet gevonden (DNS)"
+    return "portaal niet bereikbaar"  # timeout, refused, reset, other OSError
+
+
+def _note_sync(ok, msg=""):
+    """Track sync health; log failures to the journal (first, on change, then
+    every PORTAL_LOG_EVERY s) and one line on recovery."""
+    now = time.time()
+    if ok:
+        if _psync["lastError"]:
+            print("portal: weer bereikbaar (%s)" % PORTAL_URL)
+        _psync.update(lastOk=now, lastError="", lastErrorAt=0.0, errLoggedAt=0.0)
+        return
+    if msg != _psync["lastError"] or now - _psync["errLoggedAt"] >= PORTAL_LOG_EVERY:
+        print("portal: sync naar %s mislukt — %s" % (PORTAL_URL, msg))
+        _psync["errLoggedAt"] = now
+    _psync.update(lastError=msg, lastErrorAt=now)
+
+
 def _sync_once():
     """One request/response cycle. True when results wait to be reported."""
     body = _portal_snapshot()
@@ -1249,17 +1291,16 @@ def _sync_once():
     try:
         with urllib.request.urlopen(req, timeout=20) as r:  # responses may carry logos
             resp = json.loads(r.read().decode("utf-8"))
-    except urllib.error.HTTPError as e:
-        if e.code == 401 and not _psync["authWarned"]:
-            _psync["authWarned"] = True
-            print("portal: box niet herkend (401) — ontkoppel en koppel hem opnieuw in het portaal")
+    except Exception as e:  # noqa: BLE001 — portal unreachable: the TV runs on local settings
+        _note_sync(False, _sync_error_msg(e))
         return False
-    except Exception:  # noqa: BLE001 — portal unreachable: the TV runs on local settings
+    if not isinstance(resp, dict):
+        _note_sync(False, "ongeldig antwoord")
         return False
-    _psync["authWarned"] = False
+    _note_sync(True)
     sent = {id(r) for r in body["results"]}
     _psync["results"] = [r for r in _psync["results"] if id(r) not in sent]
-    if not isinstance(resp, dict) or not _apply_portal_config(resp):
+    if not _apply_portal_config(resp):
         return False
     _run_commands(resp.get("commands") or [])
     return bool(_psync["results"])
