@@ -4,14 +4,15 @@ Toernooi TV portaal — hosted remote management for Toernooi TV boxes.
 
 Boxes connect OUTWARD (POST /api/box/sync every 10 s, see server.py), so they
 work behind any club NAT. Operators and club users manage them from the Dutch
-web UI (portal.html). Stdlib only: ThreadingHTTPServer + sqlite3. Run it behind
+web UI (portal.html). ThreadingHTTPServer + PostgreSQL (psycopg 3). Run it behind
 a TLS reverse proxy (Caddy/nginx) — see README "Portaal".
 
 Run:
     python3 portal/portal.py --create-operator <username>   # once; also resets its password
     python3 portal/portal.py                                  # serves 127.0.0.1:8771
 
-Env: PORTAL_HOST, PORTAL_PORT, PORTAL_DB (default portal/portal.db),
+Env: PORTAL_HOST, PORTAL_PORT,
+     PORTAL_DATABASE_URL (verplicht, bv. postgresql://portal:...@db:5432/portal),
      PORTAL_COOKIE_SECURE=0 to allow the session cookie over plain http (dev only),
      PORTAL_LEAD_TO (default info@toernooitv.nl), PORTAL_LEAD_FROM, PORTAL_SMTP_HOST
      (empty = demo requests are stored but not mailed), PORTAL_SMTP_PORT (587; 465 = SSL),
@@ -34,7 +35,6 @@ import os
 import re
 import secrets
 import smtplib
-import sqlite3
 import sys
 import threading
 import time
@@ -43,12 +43,15 @@ import urllib.parse
 from email.message import EmailMessage
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
+import psycopg
+from psycopg.rows import dict_row
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 HTML_PATH = os.path.join(HERE, "portal.html")
 SITE_PATH = os.path.join(HERE, "site.html")
 VENDOR_DIR = os.path.join(os.path.dirname(HERE), "vendor")
 UPLOADS_DIR = os.path.join(HERE, "uploads")  # portal-side logo previews
-DB_PATH = os.environ.get("PORTAL_DB", os.path.join(HERE, "portal.db"))
+DATABASE_URL = os.environ.get("PORTAL_DATABASE_URL", "")
 HOST = os.environ.get("PORTAL_HOST", "127.0.0.1")
 PORT = int(os.environ.get("PORTAL_PORT", "8771"))
 COOKIE_SECURE = os.environ.get("PORTAL_COOKIE_SECURE", "1") != "0"
@@ -80,24 +83,25 @@ mimetypes.add_type("font/woff2", ".woff2")
 _db_lock = threading.Lock()  # ponytail: global DB write lock — fine for one process; per-box locks if write volume grows
 
 SCHEMA = """
-CREATE TABLE IF NOT EXISTS clubs(id INTEGER PRIMARY KEY, name TEXT UNIQUE NOT NULL);
+CREATE TABLE IF NOT EXISTS clubs(id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY, name TEXT UNIQUE NOT NULL);
 CREATE TABLE IF NOT EXISTS users(
-  id INTEGER PRIMARY KEY, username TEXT UNIQUE NOT NULL, pass_hash TEXT NOT NULL, salt TEXT NOT NULL,
-  role TEXT NOT NULL CHECK(role IN ('operator','club')), club_id INTEGER REFERENCES clubs(id));
-CREATE TABLE IF NOT EXISTS sessions(token TEXT PRIMARY KEY, user_id INTEGER NOT NULL, expires REAL NOT NULL);
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY, username TEXT UNIQUE NOT NULL, pass_hash TEXT NOT NULL,
+  salt TEXT NOT NULL, role TEXT NOT NULL CHECK(role IN ('operator','club')), club_id BIGINT REFERENCES clubs(id));
+CREATE TABLE IF NOT EXISTS sessions(token TEXT PRIMARY KEY, user_id BIGINT NOT NULL, expires DOUBLE PRECISION NOT NULL);
 CREATE TABLE IF NOT EXISTS pending(
-  secret_hash TEXT PRIMARY KEY, box_id TEXT NOT NULL, link_code TEXT, snapshot TEXT, last_seen REAL);
+  secret_hash TEXT PRIMARY KEY, box_id TEXT NOT NULL, link_code TEXT, snapshot TEXT, last_seen DOUBLE PRECISION);
 CREATE TABLE IF NOT EXISTS boxes(
-  box_id TEXT PRIMARY KEY, secret_hash TEXT NOT NULL, club_id INTEGER NOT NULL REFERENCES clubs(id),
-  name TEXT DEFAULT '', last_seen REAL, snapshot TEXT, desired TEXT, rev INTEGER DEFAULT 0,
-  previews TEXT DEFAULT '{}', logs TEXT, logs_at REAL, created REAL);
+  box_id TEXT PRIMARY KEY, secret_hash TEXT NOT NULL, club_id BIGINT NOT NULL REFERENCES clubs(id),
+  name TEXT DEFAULT '', last_seen DOUBLE PRECISION, snapshot TEXT, desired TEXT, rev INTEGER DEFAULT 0,
+  previews TEXT DEFAULT '{}', logs TEXT, logs_at DOUBLE PRECISION, created DOUBLE PRECISION);
 CREATE TABLE IF NOT EXISTS commands(
-  id INTEGER PRIMARY KEY AUTOINCREMENT, box_id TEXT NOT NULL, kind TEXT NOT NULL, payload TEXT,
-  status TEXT DEFAULT 'queued', result TEXT, ok INTEGER, created REAL, sent_at REAL, done_at REAL);
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY, box_id TEXT NOT NULL, kind TEXT NOT NULL, payload TEXT,
+  status TEXT DEFAULT 'queued', result TEXT, ok INTEGER, created DOUBLE PRECISION, sent_at DOUBLE PRECISION,
+  done_at DOUBLE PRECISION);
 CREATE INDEX IF NOT EXISTS commands_box ON commands(box_id, status);
 CREATE TABLE IF NOT EXISTS leads(
-  id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, club TEXT DEFAULT '', email TEXT NOT NULL,
-  message TEXT DEFAULT '', created REAL,
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY, name TEXT NOT NULL, club TEXT DEFAULT '', email TEXT NOT NULL,
+  message TEXT DEFAULT '', created DOUBLE PRECISION,
   emailed INTEGER);  -- NULL = no mail sent (not configured / pending), 1 = sent, 0 = failed
 """
 
@@ -112,20 +116,24 @@ class Fail(Exception):
 
 @contextlib.contextmanager
 def _db():
-    c = sqlite3.connect(DB_PATH, timeout=15)
-    c.row_factory = sqlite3.Row
-    try:
-        with c:
-            yield c
-    finally:
-        c.close()
+    # commit on success, rollback on exception, always close
+    # ponytail: one connection per request — a psycopg_pool if connect overhead ever shows
+    with psycopg.connect(DATABASE_URL, row_factory=dict_row) as c:
+        yield c
 
 
-def init_db():
-    os.makedirs(os.path.dirname(os.path.abspath(DB_PATH)), exist_ok=True)
-    with _db() as c:
-        c.execute("PRAGMA journal_mode=WAL")
-        c.executescript(SCHEMA)
+def init_db(retries=30):
+    for attempt in range(retries):  # first `docker compose up`: postgres may not accept TCP yet
+        try:
+            with _db() as c:
+                for stmt in SCHEMA.split(";"):
+                    if stmt.strip():
+                        c.execute(stmt)
+            return
+        except psycopg.OperationalError:
+            if attempt == retries - 1:
+                raise
+            time.sleep(1)
 
 
 def _sha(s):
@@ -174,14 +182,14 @@ def set_operator(username, password):
     _check_new_password(password)
     h, salt = hash_password(password)
     with _db_lock, _db() as c:
-        row = c.execute("SELECT id, role FROM users WHERE username=?", (username,)).fetchone()
+        row = c.execute("SELECT id, role FROM users WHERE username=%s", (username,)).fetchone()
         if row and row["role"] != "operator":
             raise Fail(400, "%s is een clubgebruiker" % username)
         if row:
-            c.execute("UPDATE users SET pass_hash=?, salt=? WHERE id=?", (h, salt, row["id"]))
-            c.execute("DELETE FROM sessions WHERE user_id=?", (row["id"],))
+            c.execute("UPDATE users SET pass_hash=%s, salt=%s WHERE id=%s", (h, salt, row["id"]))
+            c.execute("DELETE FROM sessions WHERE user_id=%s", (row["id"],))
         else:
-            c.execute("INSERT INTO users(username, pass_hash, salt, role) VALUES (?,?,?,'operator')",
+            c.execute("INSERT INTO users(username, pass_hash, salt, role) VALUES (%s,%s,%s,'operator')",
                       (username, h, salt))
 
 
@@ -189,7 +197,7 @@ def set_operator(username, password):
 def _visible_box(c, user, box_id):
     """Operator: any linked box. Club user: only their club's — else 404."""
     row = c.execute("SELECT b.*, cl.name AS club_name FROM boxes b LEFT JOIN clubs cl ON cl.id=b.club_id "
-                    "WHERE b.box_id=?", (box_id,)).fetchone()
+                    "WHERE b.box_id=%s", (box_id,)).fetchone()
     if not row or (user["role"] != "operator" and row["club_id"] != user["club_id"]):
         raise Fail(404, "Box niet gevonden")
     return row
@@ -240,11 +248,11 @@ def _save_preview(box_id, field, data_url):
 
 def _queue(c, box_id, kind, payload=None):
     if kind in CRED_COMMANDS:  # a newer credential change replaces any not yet delivered
-        c.execute("DELETE FROM commands WHERE box_id=? AND status='queued' AND kind IN (?,?,?,?)",
+        c.execute("DELETE FROM commands WHERE box_id=%s AND status='queued' AND kind IN (%s,%s,%s,%s)",
                   (box_id,) + CRED_COMMANDS)
-    cur = c.execute("INSERT INTO commands(box_id, kind, payload, created) VALUES (?,?,?,?)",
+    cur = c.execute("INSERT INTO commands(box_id, kind, payload, created) VALUES (%s,%s,%s,%s) RETURNING id",
                     (box_id, kind, json.dumps(payload) if payload else None, time.time()))
-    return {"ok": True, "commandId": cur.lastrowid}
+    return {"ok": True, "commandId": cur.fetchone()["id"]}
 
 
 # ---- demo requests (public website) -----------------------------------------
@@ -253,7 +261,7 @@ _demo_lock = threading.Lock()
 
 
 def _throttle(ip):
-    # ponytail: in-memory per-IP window, resets on restart — persist to sqlite if abuse ever outlives restarts
+    # ponytail: in-memory per-IP window, resets on restart — persist to the DB if abuse ever outlives restarts
     now = time.time()
     with _demo_lock:
         for k in list(_demo_hits):
@@ -306,7 +314,7 @@ def _record_notify(lead_id, lead):
     sent = notify_lead(lead)
     if sent is not None:
         with _db_lock, _db() as c:
-            c.execute("UPDATE leads SET emailed=? WHERE id=?", (1 if sent else 0, lead_id))
+            c.execute("UPDATE leads SET emailed=%s WHERE id=%s", (1 if sent else 0, lead_id))
 
 
 def _notify_async(lead_id, lead):
@@ -412,7 +420,7 @@ class Handler(BaseHTTPRequestHandler):
                 row = c.execute(
                     "SELECT u.id, u.username, u.role, u.club_id, cl.name AS club_name FROM sessions s "
                     "JOIN users u ON u.id=s.user_id LEFT JOIN clubs cl ON cl.id=u.club_id "
-                    "WHERE s.token=? AND s.expires>?", (_sha(tok), time.time())).fetchone()
+                    "WHERE s.token=%s AND s.expires>%s", (_sha(tok), time.time())).fetchone()
             if row:
                 return {**dict(row), "session": _sha(tok)}
         raise Fail(401, "Niet ingelogd")
@@ -492,13 +500,13 @@ class Handler(BaseHTTPRequestHandler):
         sh, now = _sha(secret), time.time()
         snap = {k: v for k, v in body.items() if k not in ("secret", "results")}
         with _db_lock, _db() as c:
-            row = c.execute("SELECT * FROM boxes WHERE box_id=?", (box_id,)).fetchone()
+            row = c.execute("SELECT * FROM boxes WHERE box_id=%s", (box_id,)).fetchone()
             if row is None:
                 # unlinked: remember it by its secret so the operator can link it by
                 # code. Never 401 here — a stranger can't block the real box.
-                c.execute("DELETE FROM pending WHERE last_seen<?", (now - 86400,))
+                c.execute("DELETE FROM pending WHERE last_seen<%s", (now - 86400,))
                 c.execute("INSERT INTO pending(secret_hash, box_id, link_code, snapshot, last_seen) "
-                          "VALUES (?,?,?,?,?) ON CONFLICT(secret_hash) DO UPDATE SET box_id=excluded.box_id, "
+                          "VALUES (%s,%s,%s,%s,%s) ON CONFLICT(secret_hash) DO UPDATE SET box_id=excluded.box_id, "
                           "link_code=excluded.link_code, snapshot=excluded.snapshot, last_seen=excluded.last_seen",
                           (sh, box_id, _norm_code(body.get("linkCode")), json.dumps(snap), now))
                 return {"linked": False}
@@ -507,15 +515,15 @@ class Handler(BaseHTTPRequestHandler):
 
             for r in body.get("results") or []:
                 cid = _int(r.get("id")) if isinstance(r, dict) else None
-                cmd = c.execute("SELECT kind, status FROM commands WHERE id=? AND box_id=?",
+                cmd = c.execute("SELECT kind, status FROM commands WHERE id=%s AND box_id=%s",
                                 (cid, box_id)).fetchone()
                 if not cmd or cmd["status"] == "done":
                     continue  # duplicate result (resent after a lost response)
-                output = str(r.get("output") or "")[:300000]
+                output = str(r.get("output") or "").replace("\x00", "")[:300000]  # postgres TEXT rejects NUL
                 if cmd["kind"] == "logs":  # logs live on the box row (operator-only endpoint)
-                    c.execute("UPDATE boxes SET logs=?, logs_at=? WHERE box_id=?", (output, now, box_id))
+                    c.execute("UPDATE boxes SET logs=%s, logs_at=%s WHERE box_id=%s", (output, now, box_id))
                     output = None
-                c.execute("UPDATE commands SET status='done', ok=?, result=?, payload=NULL, done_at=? WHERE id=?",
+                c.execute("UPDATE commands SET status='done', ok=%s, result=%s, payload=NULL, done_at=%s WHERE id=%s",
                           (1 if r.get("ok") else 0, output, now, cid))
 
             rev, box_rev = row["rev"], _int(body.get("configRev")) or 0
@@ -530,14 +538,14 @@ class Handler(BaseHTTPRequestHandler):
                     if k in previews and (logo_warning or not body["display"].get(k)):
                         previews.pop(k)
                         _remove_preview(box_id, k)
-                c.execute("UPDATE boxes SET desired=?, previews=? WHERE box_id=? AND rev=?",
+                c.execute("UPDATE boxes SET desired=%s, previews=%s WHERE box_id=%s AND rev=%s",
                           (json.dumps(desired), json.dumps(previews), box_id, rev))
-            c.execute("UPDATE boxes SET last_seen=?, snapshot=? WHERE box_id=?", (now, json.dumps(snap), box_id))
+            c.execute("UPDATE boxes SET last_seen=%s, snapshot=%s WHERE box_id=%s", (now, json.dumps(snap), box_id))
             # every undelivered or unconfirmed command, until its result arrives
             cmds = [{"id": r["id"], "kind": r["kind"], "payload": _j(r["payload"], {})} for r in c.execute(
-                "SELECT id, kind, payload FROM commands WHERE box_id=? AND status IN ('queued','sent') ORDER BY id",
+                "SELECT id, kind, payload FROM commands WHERE box_id=%s AND status IN ('queued','sent') ORDER BY id",
                 (box_id,))]
-            c.execute("UPDATE commands SET status='sent', sent_at=? WHERE box_id=? AND status='queued'", (now, box_id))
+            c.execute("UPDATE commands SET status='sent', sent_at=%s WHERE box_id=%s AND status='queued'", (now, box_id))
         out = {"linked": True, "name": row["name"], "configRev": rev, "commands": cmds}
         if box_rev != rev:
             out["config"] = {"display": desired.get("display") or {}, "tournaments": desired.get("tournaments") or []}
@@ -547,24 +555,24 @@ class Handler(BaseHTTPRequestHandler):
     def api_login(self, _user, body):
         username, pw = str(body.get("username") or "").strip(), body.get("password")
         with _db() as c:
-            row = c.execute("SELECT * FROM users WHERE username=?", (username,)).fetchone()
+            row = c.execute("SELECT * FROM users WHERE username=%s", (username,)).fetchone()
         ok = isinstance(pw, str) and row is not None and check_password(row, pw)
         if not ok:
             time.sleep(LOGIN_DELAY)
             raise Fail(401, "Onjuiste gebruikersnaam of wachtwoord")
         token, now = secrets.token_urlsafe(32), time.time()
         with _db_lock, _db() as c:
-            c.execute("DELETE FROM sessions WHERE expires<?", (now,))
-            c.execute("INSERT INTO sessions(token, user_id, expires) VALUES (?,?,?)",
+            c.execute("DELETE FROM sessions WHERE expires<%s", (now,))
+            c.execute("INSERT INTO sessions(token, user_id, expires) VALUES (%s,%s,%s)",
                       (_sha(token), row["id"], now + SESSION_TTL))
-            club = c.execute("SELECT name FROM clubs WHERE id=?", (row["club_id"],)).fetchone()
+            club = c.execute("SELECT name FROM clubs WHERE id=%s", (row["club_id"],)).fetchone()
         me = {"username": row["username"], "role": row["role"], "clubId": row["club_id"],
               "clubName": club["name"] if club else None}
         return me, [("Set-Cookie", self._session_cookie(token, SESSION_TTL))]
 
     def api_logout(self, user, _body):
         with _db_lock, _db() as c:
-            c.execute("DELETE FROM sessions WHERE token=?", (user["session"],))
+            c.execute("DELETE FROM sessions WHERE token=%s", (user["session"],))
         return {"ok": True}, [("Set-Cookie", self._session_cookie("", 0))]
 
     def api_me(self, user, _body):
@@ -574,14 +582,14 @@ class Handler(BaseHTTPRequestHandler):
     def api_password(self, user, body):
         _check_new_password(body.get("new"))
         with _db() as c:
-            row = c.execute("SELECT * FROM users WHERE id=?", (user["id"],)).fetchone()
+            row = c.execute("SELECT * FROM users WHERE id=%s", (user["id"],)).fetchone()
         if not isinstance(body.get("old"), str) or not check_password(row, body["old"]):
             time.sleep(LOGIN_DELAY)
             raise Fail(400, "Huidig wachtwoord klopt niet")
         h, salt = hash_password(body["new"])
         with _db_lock, _db() as c:
-            c.execute("UPDATE users SET pass_hash=?, salt=? WHERE id=?", (h, salt, user["id"]))
-            c.execute("DELETE FROM sessions WHERE user_id=? AND token<>?", (user["id"], user["session"]))
+            c.execute("UPDATE users SET pass_hash=%s, salt=%s WHERE id=%s", (h, salt, user["id"]))
+            c.execute("DELETE FROM sessions WHERE user_id=%s AND token<>%s", (user["id"], user["session"]))
         return {"ok": True}
 
     # -- boxes --
@@ -589,9 +597,9 @@ class Handler(BaseHTTPRequestHandler):
         q = "SELECT b.*, cl.name AS club_name FROM boxes b LEFT JOIN clubs cl ON cl.id=b.club_id"
         with _db() as c:
             if user["role"] == "operator":
-                rows = c.execute(q + " ORDER BY cl.name COLLATE NOCASE, b.name COLLATE NOCASE").fetchall()
+                rows = c.execute(q + " ORDER BY lower(cl.name), lower(b.name)").fetchall()
             else:
-                rows = c.execute(q + " WHERE b.club_id=? ORDER BY b.name COLLATE NOCASE", (user["club_id"],)).fetchall()
+                rows = c.execute(q + " WHERE b.club_id=%s ORDER BY lower(b.name)", (user["club_id"],)).fetchall()
         return {"boxes": [_box_summary(r) for r in rows]}
 
     def api_box_detail(self, user, _body, box_id):
@@ -599,7 +607,7 @@ class Handler(BaseHTTPRequestHandler):
         with _db() as c:
             row = _visible_box(c, user, box_id)
             cmds = c.execute("SELECT id, kind, status, ok, result, created, done_at FROM commands "
-                             "WHERE box_id=? ORDER BY id DESC LIMIT 30", (box_id,)).fetchall()
+                             "WHERE box_id=%s ORDER BY id DESC LIMIT 30", (box_id,)).fetchall()
         snap, desired, previews = _j(row["snapshot"], {}), _j(row["desired"], {}), _j(row["previews"], {})
         display = dict(desired.get("display") or {})
         # never ship logo data URLs to the browser: only whether one is set + a preview URL
@@ -624,9 +632,9 @@ class Handler(BaseHTTPRequestHandler):
             club_id = row["club_id"]
             if "clubId" in body:
                 club_id = _int(body.get("clubId"))
-                if not c.execute("SELECT 1 FROM clubs WHERE id=?", (club_id,)).fetchone():
+                if not c.execute("SELECT 1 FROM clubs WHERE id=%s", (club_id,)).fetchone():
                     raise Fail(400, "Club bestaat niet")
-            c.execute("UPDATE boxes SET name=?, club_id=? WHERE box_id=?", (name, club_id, box_id))
+            c.execute("UPDATE boxes SET name=%s, club_id=%s WHERE box_id=%s", (name, club_id, box_id))
         return {"ok": True}
 
     def api_link(self, _user, body):
@@ -634,16 +642,16 @@ class Handler(BaseHTTPRequestHandler):
         if len(code) != 6:
             raise Fail(400, "Vul de koppelcode van het scherm in (6 tekens)")
         with _db_lock, _db() as c:
-            if not c.execute("SELECT 1 FROM clubs WHERE id=?", (club_id,)).fetchone():
+            if not c.execute("SELECT 1 FROM clubs WHERE id=%s", (club_id,)).fetchone():
                 raise Fail(400, "Kies een club")
-            rows = c.execute("SELECT * FROM pending WHERE link_code=? AND last_seen>?",
+            rows = c.execute("SELECT * FROM pending WHERE link_code=%s AND last_seen>%s",
                              (code, time.time() - LINK_WINDOW)).fetchall()
             if not rows:
                 raise Fail(404, "Geen box gevonden met deze code — staat het scherm aan en is het online?")
             if len(rows) > 1:
                 raise Fail(409, "Meerdere boxen melden deze code — herstart het scherm voor een nieuwe code")
             p = rows[0]
-            if c.execute("SELECT 1 FROM boxes WHERE box_id=?", (p["box_id"],)).fetchone():
+            if c.execute("SELECT 1 FROM boxes WHERE box_id=%s", (p["box_id"],)).fetchone():
                 raise Fail(409, "Deze box is al gekoppeld")
             snap = _j(p["snapshot"], {})
             display = snap.get("display") if isinstance(snap.get("display"), dict) else {}
@@ -651,17 +659,17 @@ class Handler(BaseHTTPRequestHandler):
                        "tournaments": snap.get("tournaments") if isinstance(snap.get("tournaments"), list) else []}
             name = str(body.get("name") or "").strip()[:80] or str(display.get("clubName") or "Scherm")[:80]
             c.execute("INSERT INTO boxes(box_id, secret_hash, club_id, name, last_seen, snapshot, desired, rev, "
-                      "previews, created) VALUES (?,?,?,?,?,?,?,1,'{}',?)",
+                      "previews, created) VALUES (%s,%s,%s,%s,%s,%s,%s,1,'{}',%s)",
                       (p["box_id"], p["secret_hash"], club_id, name, p["last_seen"], p["snapshot"],
                        json.dumps(desired), time.time()))
-            c.execute("DELETE FROM pending WHERE box_id=?", (p["box_id"],))
+            c.execute("DELETE FROM pending WHERE box_id=%s", (p["box_id"],))
         return {"ok": True, "boxId": p["box_id"]}
 
     def api_unlink(self, user, _body, box_id):
         with _db_lock, _db() as c:
             _visible_box(c, user, box_id)
-            c.execute("DELETE FROM commands WHERE box_id=?", (box_id,))
-            c.execute("DELETE FROM boxes WHERE box_id=?", (box_id,))
+            c.execute("DELETE FROM commands WHERE box_id=%s", (box_id,))
+            c.execute("DELETE FROM boxes WHERE box_id=%s", (box_id,))
         for k in LOGO_FIELDS:
             _remove_preview(box_id, k)
         return {"ok": True}
@@ -691,7 +699,7 @@ class Handler(BaseHTTPRequestHandler):
                         _remove_preview(box_id, k)
                 display[k] = v
             desired["display"] = display
-            c.execute("UPDATE boxes SET desired=?, previews=?, rev=rev+1 WHERE box_id=?",
+            c.execute("UPDATE boxes SET desired=%s, previews=%s, rev=rev+1 WHERE box_id=%s",
                       (json.dumps(desired), json.dumps(previews), box_id))
         return {"ok": True}
 
@@ -705,7 +713,7 @@ class Handler(BaseHTTPRequestHandler):
             row = _visible_box(c, user, box_id)
             desired = _j(row["desired"], {})
             desired["tournaments"] = clean
-            c.execute("UPDATE boxes SET desired=?, rev=rev+1 WHERE box_id=?", (json.dumps(desired), box_id))
+            c.execute("UPDATE boxes SET desired=%s, rev=rev+1 WHERE box_id=%s", (json.dumps(desired), box_id))
         return {"ok": True}
 
     def api_ts_login(self, user, body, box_id):
@@ -749,7 +757,7 @@ class Handler(BaseHTTPRequestHandler):
         with _db() as c:
             rows = c.execute("SELECT cl.id, cl.name, (SELECT COUNT(*) FROM boxes WHERE club_id=cl.id) AS boxes, "
                              "(SELECT COUNT(*) FROM users WHERE club_id=cl.id) AS users FROM clubs cl "
-                             "ORDER BY cl.name COLLATE NOCASE").fetchall()
+                             "ORDER BY lower(cl.name)").fetchall()
         return {"clubs": [dict(r) for r in rows]}
 
     def api_club_create(self, _user, body):
@@ -758,23 +766,25 @@ class Handler(BaseHTTPRequestHandler):
             raise Fail(400, "Vul een clubnaam in")
         try:
             with _db_lock, _db() as c:
-                cid = c.execute("INSERT INTO clubs(name) VALUES (?)", (name,)).lastrowid
-        except sqlite3.IntegrityError:
+                cid = c.execute("INSERT INTO clubs(name) VALUES (%s) RETURNING id", (name,)).fetchone()["id"]
+        except psycopg.errors.UniqueViolation:
             raise Fail(409, "Deze club bestaat al") from None
         return {"ok": True, "id": cid}
 
     def api_club_delete(self, _user, _body, club_id):
+        club_id = int(club_id)  # a digit string beyond bigint range would 500; an int just matches nothing
         with _db_lock, _db() as c:
-            used = c.execute("SELECT (SELECT COUNT(*) FROM boxes WHERE club_id=?) + "
-                             "(SELECT COUNT(*) FROM users WHERE club_id=?)", (club_id, club_id)).fetchone()[0]
+            used = c.execute("SELECT (SELECT COUNT(*) FROM boxes WHERE club_id=%s) + "
+                             "(SELECT COUNT(*) FROM users WHERE club_id=%s) AS used",
+                             (club_id, club_id)).fetchone()["used"]
             if used:
                 raise Fail(409, "Club heeft nog boxen of gebruikers")
-            c.execute("DELETE FROM clubs WHERE id=?", (club_id,))
+            c.execute("DELETE FROM clubs WHERE id=%s", (club_id,))
         return {"ok": True}
 
     def api_users(self, _user, _body):
         with _db() as c:
-            rows = c.execute("SELECT u.id, u.username, u.role, u.club_id AS clubId, cl.name AS clubName FROM users u "
+            rows = c.execute('SELECT u.id, u.username, u.role, u.club_id AS "clubId", cl.name AS "clubName" FROM users u '
                              "LEFT JOIN clubs cl ON cl.id=u.club_id ORDER BY u.role DESC, u.username").fetchall()
         return {"users": [dict(r) for r in rows]}
 
@@ -786,34 +796,37 @@ class Handler(BaseHTTPRequestHandler):
         h, salt = hash_password(body["password"])
         try:
             with _db_lock, _db() as c:
-                if not c.execute("SELECT 1 FROM clubs WHERE id=?", (club_id,)).fetchone():
+                if not c.execute("SELECT 1 FROM clubs WHERE id=%s", (club_id,)).fetchone():
                     raise Fail(400, "Kies een club")  # a club user always belongs to a club
-                uid = c.execute("INSERT INTO users(username, pass_hash, salt, role, club_id) VALUES (?,?,?,'club',?)",
-                                (username, h, salt, club_id)).lastrowid
-        except sqlite3.IntegrityError:
+                uid = c.execute("INSERT INTO users(username, pass_hash, salt, role, club_id) "
+                                "VALUES (%s,%s,%s,'club',%s) RETURNING id",
+                                (username, h, salt, club_id)).fetchone()["id"]
+        except psycopg.errors.UniqueViolation:
             raise Fail(409, "Deze gebruikersnaam bestaat al") from None
         return {"ok": True, "id": uid}
 
     def _club_user(self, c, user_id):
-        row = c.execute("SELECT id FROM users WHERE id=? AND role='club'", (user_id,)).fetchone()
+        row = c.execute("SELECT id FROM users WHERE id=%s AND role='club'", (user_id,)).fetchone()
         if not row:
             raise Fail(404, "Clubgebruiker niet gevonden")
         return row
 
     def api_user_delete(self, _user, _body, user_id):
+        user_id = int(user_id)  # see api_club_delete
         with _db_lock, _db() as c:
             self._club_user(c, user_id)
-            c.execute("DELETE FROM sessions WHERE user_id=?", (user_id,))
-            c.execute("DELETE FROM users WHERE id=?", (user_id,))
+            c.execute("DELETE FROM sessions WHERE user_id=%s", (user_id,))
+            c.execute("DELETE FROM users WHERE id=%s", (user_id,))
         return {"ok": True}
 
     def api_user_password(self, _user, body, user_id):
+        user_id = int(user_id)  # see api_club_delete
         _check_new_password(body.get("password"))
         h, salt = hash_password(body["password"])
         with _db_lock, _db() as c:
             self._club_user(c, user_id)
-            c.execute("UPDATE users SET pass_hash=?, salt=? WHERE id=?", (h, salt, user_id))
-            c.execute("DELETE FROM sessions WHERE user_id=?", (user_id,))
+            c.execute("UPDATE users SET pass_hash=%s, salt=%s WHERE id=%s", (h, salt, user_id))
+            c.execute("DELETE FROM sessions WHERE user_id=%s", (user_id,))
         return {"ok": True}
 
     # -- demo requests from the public website --
@@ -829,8 +842,9 @@ class Handler(BaseHTTPRequestHandler):
             raise Fail(400, "Vul je naam en een geldig e-mailadres in.")
         lead = {"name": name, "club": club, "email": email, "message": message, "created": time.time()}
         with _db_lock, _db() as c:
-            lead_id = c.execute("INSERT INTO leads(name, club, email, message, created) VALUES (?,?,?,?,?)",
-                                (name, club, email, message, lead["created"])).lastrowid
+            lead_id = c.execute("INSERT INTO leads(name, club, email, message, created) "
+                                "VALUES (%s,%s,%s,%s,%s) RETURNING id",
+                                (name, club, email, message, lead["created"])).fetchone()["id"]
         _notify_async(lead_id, lead)
         return {"ok": True}
 
@@ -842,6 +856,8 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main(argv):
+    if not DATABASE_URL:
+        sys.exit("PORTAL_DATABASE_URL is niet gezet (bv. postgresql://portal:...@db:5432/portal)")
     init_db()
     if argv[:1] == ["--create-operator"]:
         if len(argv) != 2:
@@ -863,7 +879,7 @@ def main(argv):
     except Exception:  # noqa: BLE001
         pass
     httpd = ThreadingHTTPServer((HOST, PORT), Handler)
-    print("Toernooi TV portaal op http://%s:%d  (db: %s)" % (HOST, PORT, DB_PATH))
+    print("Toernooi TV portaal op http://%s:%d" % (HOST, PORT))  # no URL: it holds the password
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:

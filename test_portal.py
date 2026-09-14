@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
-"""Self-check for the hosted portal (portal/portal.py). Run: python3 test_portal.py"""
+"""Self-check for the hosted portal (portal/portal.py), against a real PostgreSQL.
+
+Run: PORTAL_TEST_DATABASE_URL=postgresql://portal:portal@localhost:5432/portal python3 test_portal.py
+Every test wipes that database's public schema.
+"""
 
 import base64
 import json
 import os
 import re
 import shutil
-import sqlite3
 import socket
 import sys
 import tempfile
@@ -18,9 +21,16 @@ import urllib.error
 import urllib.request
 from http.server import ThreadingHTTPServer
 
+import psycopg
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, "portal"))
 import portal  # noqa: E402
+
+TEST_URL = os.environ.get("PORTAL_TEST_DATABASE_URL")
+if not TEST_URL:
+    sys.exit("PORTAL_TEST_DATABASE_URL is niet gezet — start bv. docker run --rm -e POSTGRES_PASSWORD=portal "
+             "-e POSTGRES_USER=portal -e POSTGRES_DB=portal -p 5432:5432 postgres:16-alpine")
 
 PNG = base64.b64decode(
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==")
@@ -33,10 +43,13 @@ class PortalBase(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, self.tmp)
-        self.saved = {k: getattr(portal, k) for k in ("DB_PATH", "UPLOADS_DIR", "LOGIN_DELAY")}
-        portal.DB_PATH = os.path.join(self.tmp, "portal.db")
+        self.saved = {k: getattr(portal, k) for k in ("DATABASE_URL", "UPLOADS_DIR", "LOGIN_DELAY")}
+        portal.DATABASE_URL = TEST_URL
         portal.UPLOADS_DIR = os.path.join(self.tmp, "uploads")
         portal.LOGIN_DELAY = 0.2
+        with psycopg.connect(TEST_URL) as c:  # fresh, empty database per test
+            c.execute("DROP SCHEMA public CASCADE")
+            c.execute("CREATE SCHEMA public")
         portal.init_db()
         portal.set_operator("admin", "adminpass1")
         self.httpd = ThreadingHTTPServer(("127.0.0.1", 0), portal.Handler)
@@ -100,12 +113,9 @@ class PortalBase(unittest.TestCase):
         self.assertEqual((s, out.get("boxId")), (200, box), out)
 
     def db(self, sql, args=()):
-        c = sqlite3.connect(portal.DB_PATH)
-        try:
-            with c:
-                return c.execute(sql, args).fetchall()
-        finally:
-            c.close()
+        with psycopg.connect(portal.DATABASE_URL) as c:
+            cur = c.execute(sql, args)
+            return cur.fetchall() if cur.description else []  # UPDATE/DELETE have no result set
 
 
 class PortalTest(PortalBase):
@@ -175,13 +185,13 @@ class PortalTest(PortalBase):
         self.sync()
         self.assertEqual(self.req("POST", "/api/boxes/link", {"code": "XXX-XXX", "clubId": club}, self.op)[0], 404)
         self.assertEqual(self.req("POST", "/api/boxes/link", {"code": "AB3-9KF", "clubId": 999}, self.op)[0], 400)
-        self.db("UPDATE pending SET last_seen=?", (time.time() - 200,))  # stale code
+        self.db("UPDATE pending SET last_seen=%s", (time.time() - 200,))  # stale code
         self.assertEqual(self.req("POST", "/api/boxes/link", {"code": "AB3-9KF", "clubId": club}, self.op)[0], 404)
         self.sync()
         # a second box (same id copied) reporting the same code → refuse, don't guess
         self.sync(secret="copycat-" + "c" * 30)
         self.assertEqual(self.req("POST", "/api/boxes/link", {"code": "AB3-9KF", "clubId": club}, self.op)[0], 409)
-        self.db("DELETE FROM pending WHERE secret_hash<>?", (portal._sha(SECRET),))
+        self.db("DELETE FROM pending WHERE secret_hash<>%s", (portal._sha(SECRET),))
         self.assertEqual(self.req("POST", "/api/boxes/link", {"code": "ab3 9kf", "clubId": club, "name": "Kantine"},
                                   self.op)[0], 200)
         d = self.req("GET", "/api/boxes/box-a", token=self.op)[1]
@@ -290,14 +300,14 @@ class PortalTest(PortalBase):
         self.linked_box(club)
         _, r = self.req("POST", "/api/boxes/box-a/command", {"kind": "restart"}, self.op)
         rid = r["commandId"]
-        self.assertEqual(self.db("SELECT status FROM commands WHERE id=?", (rid,))[0][0], "queued")
+        self.assertEqual(self.db("SELECT status FROM commands WHERE id=%s", (rid,))[0][0], "queued")
         self.assertEqual(self.req("POST", "/api/boxes/box-a/command", {"kind": "rm -rf"}, self.op)[0], 400)
         for _ in range(2):  # the first response got lost: re-delivered until a result arrives
             self.assertEqual([c["id"] for c in self.sync(configRev=1)[1]["commands"]], [rid])
-            self.assertEqual(self.db("SELECT status FROM commands WHERE id=?", (rid,))[0][0], "sent")
+            self.assertEqual(self.db("SELECT status FROM commands WHERE id=%s", (rid,))[0][0], "sent")
         self.sync(configRev=1, results=[{"id": rid, "ok": True, "output": "Herstart voltooid"}])
         self.sync(configRev=1, results=[{"id": rid, "ok": False, "output": "duplicate"}])  # idempotent
-        self.assertEqual(self.db("SELECT status, ok, result FROM commands WHERE id=?", (rid,))[0],
+        self.assertEqual(self.db("SELECT status, ok, result FROM commands WHERE id=%s", (rid,))[0],
                          ("done", 1, "Herstart voltooid"))
         self.assertEqual(self.sync(configRev=1)[1]["commands"], [])
         # credentials: a newer change replaces an undelivered one; payload wiped after the result
@@ -307,7 +317,7 @@ class PortalTest(PortalBase):
         cmds = self.sync(configRev=1)[1]["commands"]
         self.assertEqual(cmds, [{"id": r["commandId"], "kind": "set_login", "payload": {"user": "ts", "pass": TS_PASS}}])
         self.sync(configRev=1, results=[{"id": r["commandId"], "ok": True, "output": "Ingelogd als TS"}])
-        self.assertEqual(self.db("SELECT payload FROM commands WHERE id=?", (r["commandId"],))[0][0], None)
+        self.assertEqual(self.db("SELECT payload FROM commands WHERE id=%s", (r["commandId"],))[0][0], None)
         self.assertEqual(self.req("POST", "/api/boxes/box-a/login", {"user": "ts"}, tok)[0], 400)
 
     def test_unlink_and_relink(self):
@@ -319,7 +329,7 @@ class PortalTest(PortalBase):
         self.assertEqual(self.req("GET", "/api/boxes/box-a", token=self.op)[0], 404)
         self.assertEqual(self.sync()[1], {"linked": False})
         self.assertEqual(self.sync(secret="fresh-" + "f" * 30, linkCode="NEW-COD")[1], {"linked": False})
-        self.db("DELETE FROM pending WHERE secret_hash=?", (portal._sha(SECRET),))
+        self.db("DELETE FROM pending WHERE secret_hash=%s", (portal._sha(SECRET),))
         self.assertEqual(self.req("POST", "/api/boxes/link", {"code": "NEW-COD", "clubId": club}, self.op)[0], 200)
         self.assertTrue(self.sync(secret="fresh-" + "f" * 30)[1]["linked"])
 
