@@ -6,7 +6,8 @@ Serves the .dc.html design files AND:
   GET  /board   normalized court board, merged across all enabled tournaments
   GET  /config  current config (cookie is masked, never returned in full)
   POST /config  update cookie + tournament list (persisted to config.json)
-  GET  /health  liveness
+  GET  /health  liveness (+ version, boxId)
+  POST /update  start a self-update to the latest release tag (appliance/update.sh)
 
 The board data is fetched from TournamentSoftware's internal REST API using a
 captured, server-side session cookie (the "cookie-replay" approach the official
@@ -39,11 +40,71 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+import uuid
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 CONFIG_PATH = os.path.join(HERE, "config.json")
 UPLOADS_DIR = os.path.join(HERE, "uploads")  # uploaded club/sponsor logos (served as /uploads/…)
+VERSION_PATH = os.path.join(HERE, "VERSION")  # tracked; release tag = "v" + its content
+BOXID_PATH = os.path.join(HERE, ".boxid")  # gitignored; generated once, survives updates
+UPDATE_STATE_PATH = os.path.join(HERE, "update-state.json")  # written by appliance/update.sh
+UPDATE_TIMEOUT = 15 * 60  # a "running" update older than this is treated as aborted
+
+
+def _read_version():
+    try:
+        with open(VERSION_PATH, encoding="utf-8") as f:
+            return f.read().strip() or "dev"
+    except OSError:
+        return "dev"  # dev checkout before the first release
+
+
+def _box_id():
+    """Stable box identity: read .boxid, or generate + persist it once."""
+    try:
+        with open(BOXID_PATH, encoding="utf-8") as f:
+            bid = f.read().strip()
+        if bid:
+            return bid
+    except OSError:
+        pass
+    bid = str(uuid.uuid4())
+    try:
+        tmp = BOXID_PATH + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            f.write(bid + "\n")
+        os.replace(tmp, BOXID_PATH)
+    except OSError as e:
+        print("WARNING: cannot persist box id (%s) — using a temporary one" % e)
+    return bid
+
+
+def _update_state():
+    """Outcome of the last update attempt (update-state.json), or None."""
+    try:
+        with open(UPDATE_STATE_PATH, encoding="utf-8") as f:
+            st = json.load(f)
+    except (OSError, ValueError):
+        return None
+    if not isinstance(st, dict):
+        return None
+    if st.get("status") == "running" and _age(st.get("startedAt")) > UPDATE_TIMEOUT:
+        st = {**st, "status": "failed", "error": "update afgebroken (time-out)"}
+    return st
+
+
+def _age(iso):
+    """Seconds since a UTC 'YYYY-MM-DDTHH:MM:SSZ' stamp (huge if unparseable)."""
+    try:
+        t = datetime.datetime.strptime(iso, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=datetime.timezone.utc)
+    except (TypeError, ValueError):
+        return float("inf")
+    return (datetime.datetime.now(datetime.timezone.utc) - t).total_seconds()
+
+
+VERSION = _read_version()
+BOX_ID = _box_id()
 
 # Display settings (club, sponsor, marketing slide, rotation, colours) — stored
 # on the box in config.json under "display" so every screen/device sees the same.
@@ -306,6 +367,9 @@ def _masked_config():
                   "stored": bool(lg.get("user") and lg.get("pass"))},
         # display settings hold no secrets; null = none stored on the box yet
         "display": CONFIG.get("display") or None,
+        "version": VERSION,
+        "boxId": BOX_ID,
+        "update": _update_state(),
     }
 
 
@@ -924,9 +988,10 @@ class Handler(SimpleHTTPRequestHandler):
             return
         if path == "/status":
             try:
-                self._json(device_status())
+                self._json({**device_status(), "version": VERSION, "boxId": BOX_ID})
             except Exception as e:  # noqa: BLE001
-                self._json({"online": True, "setupMode": False, "error": str(e)})
+                self._json({"online": True, "setupMode": False, "error": str(e),
+                            "version": VERSION, "boxId": BOX_ID})
             return
         if path == "/wifi":
             try:
@@ -945,7 +1010,8 @@ class Handler(SimpleHTTPRequestHandler):
             return
         if path == "/health":
             self._json({"ok": True, "cookieSet": bool(CONFIG.get("cookie")),
-                        "tournaments": len(CONFIG.get("tournaments", []))})
+                        "tournaments": len(CONFIG.get("tournaments", [])),
+                        "version": VERSION, "boxId": BOX_ID})
             return
         if path == "/my-tournaments":
             try:
@@ -980,8 +1046,26 @@ class Handler(SimpleHTTPRequestHandler):
 
     def do_POST(self):
         path = self.path.split("?")[0]
-        if path not in ("/config", "/login", "/wifi"):
+        if path not in ("/config", "/login", "/wifi", "/update"):
             self._json({"ok": False, "error": "unknown endpoint"}, 404)
+            return
+        if path == "/update":
+            # Start the root oneshot updater (appliance/update.sh). It must not be a
+            # child of this server: it restarts us, and systemd kills our whole cgroup.
+            st = _update_state()
+            if st and st.get("status") == "running":
+                self._json({"ok": False, "error": "update loopt al"})
+                return
+            try:
+                r = subprocess.run(["sudo", "-n", "/usr/bin/systemctl", "start", "--no-block",
+                                    "toernooitv-update.service"], capture_output=True, timeout=10)
+                started = r.returncode == 0
+            except (OSError, subprocess.TimeoutExpired):
+                started = False
+            if started:
+                self._json({"ok": True, "message": "Update gestart…"})
+            else:
+                self._json({"ok": False, "error": "updater niet geïnstalleerd op deze machine (draai install-kiosk.sh)"})
             return
         try:
             body = self._read_json()
@@ -1088,6 +1172,8 @@ if __name__ == "__main__":
     print("Toernooi TV server bound to %s:%d" % (HOST, PORT))
     print("  cookie    :", ("set (%d chars)" % len(ck)) if ck else "NOT set → demo fallback")
     print("  tournaments:", len(CONFIG.get("tournaments", [])))
+    print("  version   :", VERSION)
+    print("  box id    :", BOX_ID)
     print("  on this Pi : http://127.0.0.1:%d/Toernooi%%20TV.dc.html" % PORT)
     if ip != "127.0.0.1":
         print("  on the LAN : http://%s:%d/Toernooi%%20TV.dc.html" % (ip, PORT))

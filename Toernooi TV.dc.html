@@ -406,6 +406,27 @@
             <button onClick="{{ resetSettings }}" style="margin-top:24px; border:1px solid rgba(0,0,0,.14); background:#faf9f6; cursor:pointer; padding:11px 18px; border-radius:10px; font:700 14px Archivo; color:#56524a;">Herstel standaardinstellingen</button>
           </div>
 
+          <!-- SOFTWARE -->
+          <div style="background:#fff; border:1px solid rgba(0,0,0,.08); border-radius:16px; padding:28px 30px;">
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px;">
+              <span style="font:800 20px Archivo; color:#1b1a17;">Software</span>
+              <button onClick="{{ doUpdate }}" style="border:1px solid rgba(0,0,0,.14); background:#fff; cursor:pointer; padding:8px 14px; border-radius:9px; font:700 13px Archivo; color:#56524a; opacity:{{ swBtnOp }};">{{ swBtnLabel }}</button>
+            </div>
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:16px; padding:12px 0; border-bottom:1px solid rgba(0,0,0,.06);">
+              <span style="font:700 14px Archivo; color:#56524a;">Versie</span>
+              <span style="font:700 16px 'JetBrains Mono'; color:#1b1a17;">{{ swVersion }}</span>
+            </div>
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:16px; padding:12px 0; border-bottom:1px solid rgba(0,0,0,.06);">
+              <span style="font:700 14px Archivo; color:#56524a;">Box-ID</span>
+              <span style="font:600 12px 'JetBrains Mono'; color:#8a8578; word-break:break-all; text-align:right;">{{ swBoxId }}</span>
+            </div>
+            <div style="display:flex; align-items:baseline; justify-content:space-between; gap:16px; padding:12px 0;">
+              <span style="font:700 14px Archivo; color:#56524a; white-space:nowrap;">Laatste update</span>
+              <span style="font:600 14px Archivo; color:{{ swUpdateColor }}; text-align:right;">{{ swUpdateLabel }}</span>
+            </div>
+            <div style="font:600 13px Archivo; color:{{ swMsgColor }};">{{ swMsg }}</div>
+          </div>
+
         </div>
 
         <!-- LIVE PREVIEW -->
@@ -508,6 +529,8 @@ class Component extends DCLogic {
     available: [], availMsg: '', pickValue: '',
     // wifi / network (managed server-side via comitup)
     wifi: null, wifiSel: '', wifiPass: '', wifiMsg: '',
+    // software version / box id / last update outcome (from /config)
+    sw: { version: '', boxId: '', update: null, msg: '', busy: false, bad: false },
   };
 
   BOARD_POLL_MS = 15000; // poll the tp-api proxy on a fixed interval (independent of tab focus)
@@ -533,7 +556,7 @@ class Component extends DCLogic {
     window.addEventListener('resize', this._onResize);
     this._measure();
   }
-  componentWillUnmount() { clearInterval(this._iv); clearInterval(this._cfgIv); clearTimeout(this._pushTimer); clearInterval(this._bv); clearInterval(this._sv); clearInterval(this._wv); clearInterval(this._hb); clearInterval(this._dr); window.removeEventListener('hashchange', this._onHash); window.removeEventListener('resize', this._onResize); }
+  componentWillUnmount() { clearInterval(this._iv); clearInterval(this._cfgIv); clearTimeout(this._pushTimer); clearInterval(this._bv); clearInterval(this._sv); clearInterval(this._wv); clearInterval(this._hb); clearInterval(this._dr); clearTimeout(this._updTimer); window.removeEventListener('hashchange', this._onHash); window.removeEventListener('resize', this._onResize); }
 
   // Device/network status for the on-screen overlay (online? on the setup hotspot?).
   _fetchStatus = () => {
@@ -608,6 +631,7 @@ class Component extends DCLogic {
       .then(c => {
         if (!c) return;
         this.setState({ cfg: this._cfgOf(c) });
+        this._applySw(c);
         this._applyDisplay(c.display);
         // One-time carry-over: a box without stored display settings adopts this
         // browser's old localStorage settings (only from the settings page).
@@ -627,8 +651,44 @@ class Component extends DCLogic {
     const seq = this._pushSeq;
     fetch('/config', { cache: 'no-store' })
       .then(r => (r.ok ? r.json() : null))
-      .then(c => { if (c && seq === this._pushSeq) this._applyDisplay(c.display); })
+      .then(c => { if (!c) return; this._applySw(c); if (seq === this._pushSeq) this._applyDisplay(c.display); })
       .catch(() => {});
+  };
+  _applySw = c => {
+    if (c && c.version) this.setState(s => ({ sw: { ...s.sw, version: c.version, boxId: c.boxId || '', update: c.update || null } }));
+  };
+
+  // Triggered self-update: POST /update starts the updater on the box; then poll
+  // /config until an outcome newer than the previous attempt appears. The server
+  // restarts mid-update, so failed polls just mean "still updating".
+  doUpdate = () => {
+    if (this.state.sw.busy) return;
+    const prevStarted = this.state.sw.update && this.state.sw.update.startedAt;
+    const setSw = o => this.setState(s => ({ sw: { ...s.sw, ...o } }));
+    setSw({ busy: true, bad: false, msg: 'Update starten…' });
+    fetch('/update', { method: 'POST' })
+      .then(r => r.json())
+      .then(r => {
+        if (!(r && r.ok)) { setSw({ busy: false, bad: true, msg: (r && r.error) || 'Update starten mislukt' }); return; }
+        setSw({ msg: 'Bezig met bijwerken… (het scherm kan even zwart worden)' });
+        let tries = 0;
+        const poll = () => {
+          if (++tries > 60) { setSw({ busy: false, bad: true, msg: 'Nog geen resultaat na 3 minuten — kijk later opnieuw.' }); return; }
+          fetch('/config', { cache: 'no-store' })
+            .then(r2 => (r2.ok ? r2.json() : null))
+            .then(c => {
+              const u = c && c.update;
+              if (c) this._applySw(c);
+              if (!u || u.startedAt === prevStarted || u.status === 'running') { this._updTimer = setTimeout(poll, 3000); return; }
+              if (u.status === 'ok') setSw({ busy: false, bad: false, msg: 'Bijgewerkt naar ' + c.version + ' ✓' });
+              else if (u.status === 'up-to-date') setSw({ busy: false, bad: false, msg: 'Al up-to-date ✓' });
+              else setSw({ busy: false, bad: true, msg: u.error || 'Update mislukt' });
+            })
+            .catch(() => { this._updTimer = setTimeout(poll, 3000); });
+        };
+        this._updTimer = setTimeout(poll, 3000);
+      })
+      .catch(() => setSw({ busy: false, bad: true, msg: 'Server niet bereikbaar' }));
   };
   _applyDisplay = d => {
     if (d && typeof d === 'object' && !this._dirty) this.setState({ settings: { ...this.DEFAULTS, ...d } });
@@ -786,6 +846,7 @@ class Component extends DCLogic {
   renderVals() {
     const s = this.state.settings;
     const t = this.state.t;
+    const swSt = this.state.sw, upd = swSt.update;
 
     const now = new Date();
     const pad = n => String(n).padStart(2, '0');
@@ -1186,6 +1247,21 @@ class Component extends DCLogic {
       addTournament: this.addTournament,
       saveConfig: this.saveConfig,
       clearCookie: this.clearCookie,
+      // software / updates
+      swVersion: swSt.version || '—',
+      swBoxId: swSt.boxId || '—',
+      swUpdateLabel: !upd ? 'Nog nooit bijgewerkt'
+        : upd.status === 'ok' ? 'Bijgewerkt van ' + (upd.from || '?') + ' naar ' + upd.to + (upd.finishedAt ? ' · ' + new Date(upd.finishedAt).toLocaleString('nl-NL') : '')
+        : upd.status === 'up-to-date' ? 'Al up-to-date (' + upd.to + ')'
+        : upd.status === 'running' ? 'Bezig met bijwerken…'
+        : upd.status === 'rolled-back' ? 'Update naar ' + upd.to + ' mislukt — teruggezet naar ' + (upd.from || '?') + (upd.error ? ': ' + upd.error : '')
+        : 'Update mislukt' + (upd.error ? ': ' + upd.error : ''),
+      swUpdateColor: upd && (upd.status === 'failed' || upd.status === 'rolled-back') ? '#a8453b' : '#8a8578',
+      swMsg: swSt.msg,
+      swMsgColor: swSt.bad ? '#a8453b' : '#8a8578',
+      swBtnLabel: swSt.busy ? 'Bezig…' : 'Nu bijwerken',
+      swBtnOp: swSt.busy ? 0.5 : 1,
+      doUpdate: this.doUpdate,
     };
   }
 }

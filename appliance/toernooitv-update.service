@@ -1,0 +1,8 @@
+# template — placeholders filled in by install-kiosk.sh; do not `systemctl link` this file directly
+[Unit]
+Description=Toernooi TV one-shot self-update (fetch latest release tag, health-check, rollback on failure)
+
+[Service]
+Type=oneshot
+TimeoutStartSec=15min
+ExecStart=/bin/bash __APP__/appliance/update.sh

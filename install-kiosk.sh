@@ -5,23 +5,39 @@
 #   - runs the server on boot (systemd)
 #   - launches the fullscreen display on the Pi's HDMI on boot
 #   - falls back to a setup hotspot when no known wifi is reachable
+#   - installs the on-demand self-updater (toernooitv-update.service)
 #
-# Run once:   sudo bash /home/woutr/toernooi-tv/install-kiosk.sh
+# Run once from the checkout (owned by the box's normal user, path without spaces):
+#   sudo bash ./install-kiosk.sh
 # Idempotent — safe to re-run. Reboot afterwards.
 
 set -euo pipefail
-APP=/home/woutr/toernooi-tv
-USER_NAME=woutr
+APP="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 if [ "$(id -u)" -ne 0 ]; then
-  echo "Please run with sudo:  sudo bash $APP/install-kiosk.sh" >&2
+  echo "Please run with sudo:  sudo bash ./install-kiosk.sh" >&2
   exit 1
 fi
+case "$APP" in
+  *" "*) echo "The checkout path contains a space ($APP) — clone to a path without spaces." >&2; exit 1;;
+esac
+USER_NAME="$(stat -c %U "$APP")"
+if [ "$USER_NAME" = "root" ]; then
+  echo "$APP is owned by root: the checkout must be owned by the normal user that will run the box (chown it, or clone as that user)." >&2
+  exit 1
+fi
+USER_UID="$(id -u "$USER_NAME")"
+echo "==> Installing for user $USER_NAME (uid $USER_UID) from $APP"
 
-echo "==> Installing packages (cage, chromium, comitup, avahi, curl)…"
+# fill the __APP__/__USER__/__UID__ placeholders of an appliance/ template
+render() {
+  sed -e "s|__APP__|$APP|g" -e "s|__USER__|$USER_NAME|g" -e "s|__UID__|$USER_UID|g" "$APP/appliance/$1"
+}
+
+echo "==> Installing packages (cage, chromium, comitup, avahi, curl, git)…"
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -y
-apt-get install -y cage chromium comitup curl avahi-daemon avahi-utils
+apt-get install -y cage chromium comitup curl git avahi-daemon avahi-utils
 
 echo "==> Setting hostname + mDNS so the box is reachable at toernooitv.local…"
 hostnamectl set-hostname toernooitv 2>/dev/null || true
@@ -29,9 +45,22 @@ install -d /etc/avahi/services
 install -m 644 "$APP/appliance/toernooitv.avahi.service" /etc/avahi/services/toernooitv.service
 
 echo "==> Installing systemd units…"
-install -m 644 "$APP/appliance/toernooitv-server.service" /etc/systemd/system/
-install -m 644 "$APP/appliance/toernooitv-kiosk.service"  /etc/systemd/system/
+for unit in toernooitv-server.service toernooitv-kiosk.service toernooitv-update.service; do
+  render "$unit" > "/etc/systemd/system/$unit"
+  chmod 644 "/etc/systemd/system/$unit"
+done
 chmod +x "$APP/appliance/kiosk.sh"
+
+echo "==> Allowing the server to start the updater (sudoers)…"
+tmp="$(mktemp)"
+render sudoers > "$tmp"
+if ! visudo -c -f "$tmp" >/dev/null; then
+  rm -f "$tmp"
+  echo "Generated sudoers rule failed validation — not installed. Aborting." >&2
+  exit 1
+fi
+install -m 440 -o root -g root "$tmp" /etc/sudoers.d/toernooitv
+rm -f "$tmp"
 
 echo "==> Configuring comitup wifi wizard…"
 install -m 644 "$APP/appliance/comitup.conf" /etc/comitup.conf
@@ -58,9 +87,12 @@ systemctl enable --now avahi-daemon.service 2>/dev/null || true
 echo
 echo "==> Done. Quick checks:"
 systemctl is-active toernooitv-server.service && echo "   server: active" || echo "   server: NOT active (see: journalctl -u toernooitv-server)"
+echo "   version: $(cat "$APP/VERSION" 2>/dev/null || echo dev)"
 echo "   open from another device: http://toernooitv.local/beheer"
 echo "   (or by IP: http://$(hostname -I | awk '{print $1}')/beheer)"
+echo "   update later with the 'Nu bijwerken' button in Instellingen"
 echo
 echo "Reboot to start the on-TV kiosk:   sudo reboot"
 echo "After reboot the Pi's HDMI should show the fullscreen display."
 echo "If it can't find a known wifi, look for the 'ToernooiTV-setup-…' network."
+echo "Then check everything with:        bash ./verify-appliance.sh"

@@ -1,0 +1,2 @@
+# template — installed to /etc/sudoers.d/toernooitv by install-kiosk.sh (lets the server start the updater)
+__USER__ ALL=(root) NOPASSWD: /usr/bin/systemctl start --no-block toernooitv-update.service
