@@ -103,6 +103,7 @@ CREATE TABLE IF NOT EXISTS leads(
   id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY, name TEXT NOT NULL, club TEXT DEFAULT '', email TEXT NOT NULL,
   message TEXT DEFAULT '', created DOUBLE PRECISION,
   emailed INTEGER);  -- NULL = no mail sent (not configured / pending), 1 = sent, 0 = failed
+ALTER TABLE sessions ADD COLUMN IF NOT EXISTS acting_club_id BIGINT REFERENCES clubs(id) ON DELETE SET NULL;
 """
 
 
@@ -328,6 +329,7 @@ ROUTES = [  # (method, path regex, handler, who: None = public, "user", "operato
     ("POST", r"/api/login", "login", None),
     ("POST", r"/api/logout", "logout", "user"),
     ("GET", r"/api/me", "me", "user"),
+    ("POST", r"/api/act-as", "act_as", "user"),  # "user": stopping must work while acting as a club
     ("POST", r"/api/password", "password", "user"),
     ("GET", r"/api/boxes", "boxes", "user"),
     ("POST", r"/api/boxes/link", "link", "operator"),
@@ -418,11 +420,16 @@ class Handler(BaseHTTPRequestHandler):
         if tok:
             with _db() as c:
                 row = c.execute(
-                    "SELECT u.id, u.username, u.role, u.club_id, cl.name AS club_name FROM sessions s "
-                    "JOIN users u ON u.id=s.user_id LEFT JOIN clubs cl ON cl.id=u.club_id "
+                    "SELECT u.id, u.username, u.role, u.club_id, s.acting_club_id, cl.name AS club_name FROM sessions s "
+                    "JOIN users u ON u.id=s.user_id LEFT JOIN clubs cl "
+                    "ON cl.id=COALESCE(CASE WHEN u.role='operator' THEN s.acting_club_id END, u.club_id) "
                     "WHERE s.token=%s AND s.expires>%s", (_sha(tok), time.time())).fetchone()
             if row:
-                return {**dict(row), "session": _sha(tok)}
+                user = {**dict(row), "session": _sha(tok), "real_role": row["role"], "acting": False}
+                if row["acting_club_id"] and row["role"] == "operator":
+                    # "bekijk als club": from here on the operator is that club's admin, everywhere
+                    user.update(role="club", club_id=row["acting_club_id"], acting=True)
+                return user
         raise Fail(401, "Niet ingelogd")
 
     def _body(self):
@@ -567,7 +574,7 @@ class Handler(BaseHTTPRequestHandler):
                       (_sha(token), row["id"], now + SESSION_TTL))
             club = c.execute("SELECT name FROM clubs WHERE id=%s", (row["club_id"],)).fetchone()
         me = {"username": row["username"], "role": row["role"], "clubId": row["club_id"],
-              "clubName": club["name"] if club else None}
+              "clubName": club["name"] if club else None, "acting": False}
         return me, [("Set-Cookie", self._session_cookie(token, SESSION_TTL))]
 
     def api_logout(self, user, _body):
@@ -577,9 +584,24 @@ class Handler(BaseHTTPRequestHandler):
 
     def api_me(self, user, _body):
         return {"username": user["username"], "role": user["role"], "clubId": user["club_id"],
-                "clubName": user["club_name"]}
+                "clubName": user["club_name"], "acting": user["acting"]}
+
+    def api_act_as(self, user, body):
+        if user["real_role"] != "operator":
+            raise Fail(403, "Alleen voor de beheerder")
+        club_id = None  # None = stop acting
+        if body.get("clubId") is not None:
+            club_id = _int(body["clubId"])
+            with _db() as c:
+                if club_id is None or not c.execute("SELECT 1 FROM clubs WHERE id=%s", (club_id,)).fetchone():
+                    raise Fail(400, "Club bestaat niet")
+        with _db_lock, _db() as c:
+            c.execute("UPDATE sessions SET acting_club_id=%s WHERE token=%s", (club_id, user["session"]))
+        return self.api_me(self._user(), {})
 
     def api_password(self, user, body):
+        if user["acting"]:
+            raise Fail(403, "Niet beschikbaar in 'bekijk als club'")
         _check_new_password(body.get("new"))
         with _db() as c:
             row = c.execute("SELECT * FROM users WHERE id=%s", (user["id"],)).fetchone()
