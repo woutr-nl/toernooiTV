@@ -846,7 +846,7 @@ class Component extends DCLogic {
   renderVals() {
     const s = this.state.settings;
     const t = this.state.t;
-    const sw = this.state.sw, upd = sw.update;
+    const swSt = this.state.sw, upd = swSt.update;
 
     const now = new Date();
     const pad = n => String(n).padStart(2, '0');
@@ -1248,8 +1248,8 @@ class Component extends DCLogic {
       saveConfig: this.saveConfig,
       clearCookie: this.clearCookie,
       // software / updates
-      swVersion: sw.version || '—',
-      swBoxId: sw.boxId || '—',
+      swVersion: swSt.version || '—',
+      swBoxId: swSt.boxId || '—',
       swUpdateLabel: !upd ? 'Nog nooit bijgewerkt'
         : upd.status === 'ok' ? 'Bijgewerkt van ' + (upd.from || '?') + ' naar ' + upd.to + (upd.finishedAt ? ' · ' + new Date(upd.finishedAt).toLocaleString('nl-NL') : '')
         : upd.status === 'up-to-date' ? 'Al up-to-date (' + upd.to + ')'
@@ -1257,10 +1257,10 @@ class Component extends DCLogic {
         : upd.status === 'rolled-back' ? 'Update naar ' + upd.to + ' mislukt — teruggezet naar ' + (upd.from || '?') + (upd.error ? ': ' + upd.error : '')
         : 'Update mislukt' + (upd.error ? ': ' + upd.error : ''),
       swUpdateColor: upd && (upd.status === 'failed' || upd.status === 'rolled-back') ? '#a8453b' : '#8a8578',
-      swMsg: sw.msg,
-      swMsgColor: sw.bad ? '#a8453b' : '#8a8578',
-      swBtnLabel: sw.busy ? 'Bezig…' : 'Nu bijwerken',
-      swBtnOp: sw.busy ? 0.5 : 1,
+      swMsg: swSt.msg,
+      swMsgColor: swSt.bad ? '#a8453b' : '#8a8578',
+      swBtnLabel: swSt.busy ? 'Bezig…' : 'Nu bijwerken',
+      swBtnOp: swSt.busy ? 0.5 : 1,
       doUpdate: this.doUpdate,
     };
   }
