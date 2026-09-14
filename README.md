@@ -105,11 +105,27 @@ so the screen always renders.
 
 After first run, configure everything from the Instellingen screen instead.
 
+## Display settings (stored on the box)
+Club name/logo, sponsor slide, the **marketing slide** (label, message,
+call-to-action, colour), which slide types rotate, seconds per slide type
+(banen, sponsor, uitslagen, marketing) and sport colours are stored in
+`config.json` under `display` — so a change made from any laptop shows on the TV
+within one poll (15s) and survives restarts. Uploaded logos are written to
+`uploads/` (gitignored); `config.json` only holds their `/uploads/…` URL.
+
+Browser `localStorage` is no longer authoritative: the first time a browser with
+old saved settings opens `/beheer` on a box without stored display settings,
+they are carried over to the box once.
+
 ## Endpoints
 - `/board` — court board merged across enabled tournaments:
   `{ ok, source, courts:[{court,base,num,sport,event,tournamentLabel,t1,t2,status,timeLabel}], counts, tournaments:[{code,label,ok,error,courts}], note }`
-- `/config` — GET returns `{ cookieSet, cookieHint, tournaments }` (cookie masked);
-  POST `{ cookie?, clearCookie?, tournaments }` updates + persists
+- `/config` — GET returns `{ cookieSet, cookieHint, tournaments, login, auth, display }`
+  (cookie/password never returned; `display` is `null` until first saved);
+  POST `{ cookie?, clearCookie?, tournaments?, display? }` updates + persists.
+  `display` may be partial; logos are sent as data-URLs and come back as
+  `/uploads/…` URLs (a rejected logo keeps the old one and adds `warning`).
+- `/uploads/…` — uploaded logos
 - `/health` — `{ ok, cookieSet, tournaments }`
 
 ## Known gaps to resolve with live data

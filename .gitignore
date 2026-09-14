@@ -3,6 +3,9 @@ config.json
 config.json.tmp
 *.tmp
 
+# Uploaded club/sponsor logos (runtime state, referenced from config.json)
+uploads/
+
 # Chromium kiosk profile
 .kiosk-profile/
 
