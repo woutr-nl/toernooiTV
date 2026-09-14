@@ -59,9 +59,17 @@
         <div style="position:absolute; top:0; left:0; right:0; z-index:40; background:#b54708; color:#fff; text-align:center; padding:.7vw 0; font:800 1.1vw Archivo; letter-spacing:.1vw;">Geen internet — livescores gepauzeerd, scherm draait door</div>
       </sc-if>
 
+      <!-- PORTAL LINK CODE (box not yet linked to the portal) -->
+      <sc-if value="{{ showLinkCode }}" hint-placeholder-val="{{ true }}">
+        <div style="position:absolute; bottom:5.4vw; left:50%; transform:translateX(-50%); z-index:40; background:rgba(8,10,14,.82); color:#dfe3ea; padding:.7vw 1.4vw; border-radius:.7vw; font:700 1vw Archivo; white-space:nowrap;">Portaal-koppelcode: <span style="font-family:'JetBrains Mono'; color:#fff; letter-spacing:.15vw;">{{ linkCode }}</span></div>
+      </sc-if>
+
       <!-- NOT-YET-COUPLED HINT -->
-      <sc-if value="{{ needsConfig }}" hint-placeholder-val="{{ true }}">
+      <sc-if value="{{ needsConfigLocal }}" hint-placeholder-val="{{ true }}">
         <div style="position:absolute; bottom:2.4vw; left:50%; transform:translateX(-50%); z-index:40; background:rgba(8,10,14,.82); color:#dfe3ea; padding:.7vw 1.4vw; border-radius:.7vw; font:700 1vw Archivo;">Nog niet gekoppeld · open <span style="font-family:'JetBrains Mono'; color:#fff;">{{ beheerUrl }}</span></div>
+      </sc-if>
+      <sc-if value="{{ needsConfigManaged }}">
+        <div style="position:absolute; bottom:2.4vw; left:50%; transform:translateX(-50%); z-index:40; background:rgba(8,10,14,.82); color:#dfe3ea; padding:.7vw 1.4vw; border-radius:.7vw; font:700 1vw Archivo;">Nog niet ingesteld · beheer via het Toernooi TV-portaal</div>
       </sc-if>
     </div>
   </sc-if>
@@ -92,10 +100,21 @@
     </div>
 
     <div style="padding:36px 32px 60px;">
-      <div style="max-width:1300px; margin:0 auto; display:grid; grid-template-columns:minmax(0,1fr) minmax(340px,440px); gap:32px; align-items:start;">
+      <div style="max-width:1300px; margin:0 auto; display:grid; grid-template-columns:{{ gridCols }}; justify-content:center; gap:32px; align-items:start;">
 
         <!-- FORM -->
         <div style="display:flex; flex-direction:column; gap:22px;">
+
+          <!-- MANAGED VIA THE PORTAL (linked box: only wifi stays local) -->
+          <sc-if value="{{ managed }}">
+            <div style="background:#fff; border:1px solid rgba(0,0,0,.08); border-radius:16px; padding:28px 30px;">
+              <div style="display:flex; align-items:center; gap:10px; margin-bottom:6px;">
+                <span style="font:800 20px Archivo; color:#1b1a17;">Beheer via het portaal</span>
+                <span style="font:700 10px 'JetBrains Mono'; letter-spacing:1.5px; color:#8a8578; background:#f0eee8; padding:4px 8px; border-radius:6px;">PORTAAL</span>
+              </div>
+              <div style="font:500 14px Archivo; color:#8a8578;">{{ portalNotice }}</div>
+            </div>
+          </sc-if>
 
           <!-- WIFI & NETWERK -->
           <div style="background:#fff; border:1px solid rgba(0,0,0,.08); border-radius:16px; padding:28px 30px;">
@@ -147,6 +166,7 @@
             </sc-if>
           </div>
 
+          <sc-if value="{{ notManaged }}">
           <!-- VERBINDING & TOERNOOIEN -->
           <div style="background:#fff; border:1px solid rgba(0,0,0,.08); border-radius:16px; padding:28px 30px;">
             <div style="display:flex; align-items:center; gap:10px; margin-bottom:6px;">
@@ -426,10 +446,12 @@
             </div>
             <div style="font:600 13px Archivo; color:{{ swMsgColor }};">{{ swMsg }}</div>
           </div>
+          </sc-if>
 
         </div>
 
         <!-- LIVE PREVIEW -->
+        <sc-if value="{{ notManaged }}">
         <div style="position:sticky; top:96px; display:flex; flex-direction:column; gap:14px;">
           <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
             <span style="font:700 12px Archivo; letter-spacing:2px; color:#8a8578; text-transform:uppercase;">Live voorbeeld</span>
@@ -456,6 +478,7 @@
           </div>
           <button onClick="{{ goWeergave }}" style="margin-top:4px; border:none; background:#0b0d11; cursor:pointer; padding:14px; border-radius:11px; font:700 15px Archivo; color:#fff;">Open weergave-modus →</button>
         </div>
+        </sc-if>
 
       </div>
     </div>
@@ -624,7 +647,7 @@ class Component extends DCLogic {
   };
 
   // Connection config (cookie + tournament list), managed server-side.
-  _cfgOf = c => ({ cookieSet: !!c.cookieSet, cookieHint: c.cookieHint || '', tournaments: c.tournaments || [], auth: c.auth || null, login: c.login || null, display: c.display || null });
+  _cfgOf = c => ({ cookieSet: !!c.cookieSet, cookieHint: c.cookieHint || '', tournaments: c.tournaments || [], auth: c.auth || null, login: c.login || null, display: c.display || null, managed: !!c.managed, portalName: c.portalName || '' });
   _fetchConfig = () => {
     fetch('/config', { cache: 'no-store' })
       .then(r => (r.ok ? r.json() : null))
@@ -635,7 +658,8 @@ class Component extends DCLogic {
         this._applyDisplay(c.display);
         // One-time carry-over: a box without stored display settings adopts this
         // browser's old localStorage settings (only from the settings page).
-        if (c.display == null && this.state.tab === 'beheer') {
+        // (never on a portal-managed box: POST /config is refused there)
+        if (c.display == null && this.state.tab === 'beheer' && !c.managed) {
           let saved = null;
           try { saved = JSON.parse(localStorage.getItem(this.LSKEY)); } catch (e) {}
           if (saved && typeof saved === 'object') this.update(saved);
@@ -651,7 +675,14 @@ class Component extends DCLogic {
     const seq = this._pushSeq;
     fetch('/config', { cache: 'no-store' })
       .then(r => (r.ok ? r.json() : null))
-      .then(c => { if (!c) return; this._applySw(c); if (seq === this._pushSeq) this._applyDisplay(c.display); })
+      .then(c => {
+        if (!c) return;
+        this._applySw(c);
+        // linking/unlinking in the portal switches the beheer layout without a reload
+        if (!!c.managed !== !!this.state.cfg.managed || (c.portalName || '') !== (this.state.cfg.portalName || ''))
+          this.setState(s => ({ cfg: { ...s.cfg, managed: !!c.managed, portalName: c.portalName || '' } }));
+        if (seq === this._pushSeq) this._applyDisplay(c.display);
+      })
       .catch(() => {});
   };
   _applySw = c => {
@@ -1122,9 +1153,19 @@ class Component extends DCLogic {
     const hotspotName = st.hotspotName || 'ToernooiTV-setup-…';
     // Prefer the stable mDNS name (survives DHCP changes); show the IP as a hint.
     const beheerUrl = 'toernooitv.local/beheer' + (st.ip ? ('  ·  ' + st.ip) : '');
+    // Portal: an unlinked box shows its link code; a linked one is managed remotely.
+    const showLinkCode = !overlaySetup && !!st.linkCode;
+    const managed = !!cfg.managed;
 
     return {
-      overlaySetup, overlayOffline, needsConfig, hotspotName, beheerUrl,
+      overlaySetup, overlayOffline, hotspotName, beheerUrl,
+      needsConfigLocal: needsConfig && !st.managed,
+      needsConfigManaged: needsConfig && !!st.managed,
+      showLinkCode, linkCode: st.linkCode || '',
+      managed, notManaged: !managed,
+      gridCols: managed ? 'minmax(0,760px)' : 'minmax(0,1fr) minmax(340px,440px)',
+      portalNotice: 'Dit scherm wordt beheerd via het Toernooi TV-portaal' + (cfg.portalName ? (' als ‘' + cfg.portalName + '’') : '') +
+        '. Weergave, toernooien en de Tournamentsoftware-login pas je daar aan; hier stel je alleen de wifi in.',
       isDisplay: !isBeheer,
       isBeheer,
       fullScale: this.state.fullScale,

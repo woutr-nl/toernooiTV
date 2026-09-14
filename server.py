@@ -9,6 +9,10 @@ Serves the .dc.html design files AND:
   GET  /health  liveness (+ version, boxId)
   POST /update  start a self-update to the latest release tag (appliance/update.sh)
 
+Remote management: a background thread syncs outward with the Toernooi TV
+portal (portal/portal.py) every 10 s — status up, settings + commands down. Once
+linked, /config and /login are managed by the portal (403 locally).
+
 The board data is fetched from TournamentSoftware's internal REST API using a
 captured, server-side session cookie (the "cookie-replay" approach the official
 Toernooi TV uses). Same origin as the page, so the browser never touches tp-api
@@ -32,6 +36,7 @@ import http.cookiejar
 import json
 import os
 import re
+import secrets
 import socket
 import subprocess
 import sys
@@ -165,6 +170,14 @@ _NL_DAYS = ["ma", "di", "wo", "do", "vr", "za", "zo"]
 _NL_MON = ["jan", "feb", "mrt", "apr", "mei", "jun", "jul", "aug", "sep", "okt", "nov", "dec"]
 UA = "Mozilla/5.0 (ToernooiTV-proxy)"
 
+# Remote portal. Empty TP_PORTAL_URL disables syncing (dev/tests).
+PORTAL_URL = os.environ.get("TP_PORTAL_URL", "https://portal.toernooitv.nl")
+PORTAL_INTERVAL = 10  # seconds between syncs (portal delivery SLA is ~30 s)
+MANAGED_MSG = "Dit scherm wordt beheerd via het Toernooi TV-portaal"
+SUDO_MSG = "Niet toegestaan op deze box — draai install-kiosk.sh opnieuw"
+_LINK_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"  # no 0/O/1/I
+_STARTED = time.time()
+
 _lock = threading.Lock()
 _cache = {}  # (code, path) -> (expires_at, data)
 CONFIG = {"cookie": "", "tournaments": [], "login": {"user": "", "pass": ""}}
@@ -252,6 +265,7 @@ def _load_config():
             # settings page then carries over a browser's old localStorage once)
             if isinstance(data.get("display"), dict):
                 CONFIG["display"] = _clean_display(data["display"], DISPLAY_DEFAULTS)
+            CONFIG["portal"] = _clean_portal(data.get("portal"))
             return
         except Exception as e:  # noqa: BLE001
             print("config.json unreadable, ignoring:", e)
@@ -262,7 +276,32 @@ def _load_config():
         "tournaments": [{"code": code, "label": "Toernooi 1", "enabled": True}] if code else [],
         "login": {"user": os.environ.get("TP_LOGIN_USER", "").strip(),
                   "pass": os.environ.get("TP_LOGIN_PASS", "").strip(), "name": ""},
+        "portal": _clean_portal(None),
     }
+
+
+def _clean_portal(p):
+    """The box's portal state: secret (never served), linked, applied config rev,
+    portal name, last command id run, and a restart/reboot/update awaiting its result."""
+    p = p if isinstance(p, dict) else {}
+
+    def num(k):
+        try:
+            return int(p.get(k) or 0)
+        except (TypeError, ValueError):
+            return 0
+    return {"secret": str(p.get("secret") or ""), "linked": bool(p.get("linked")),
+            "rev": num("rev"), "name": str(p.get("name") or ""), "lastCmdId": num("lastCmdId"),
+            "pending": p["pending"] if isinstance(p.get("pending"), dict) else None}
+
+
+def _portal():
+    """Portal state (tests swap CONFIG for dicts without a "portal" key)."""
+    return CONFIG.get("portal") or {}
+
+
+def _managed():
+    return bool(_portal().get("linked"))
 
 
 def _clean_t(t):
@@ -370,6 +409,8 @@ def _masked_config():
         "version": VERSION,
         "boxId": BOX_ID,
         "update": _update_state(),
+        "managed": _managed(),
+        "portalName": _portal().get("name", ""),
     }
 
 
@@ -514,6 +555,29 @@ def _try_relogin():
         return True
     print("auto-relogin failed:", err)
     return False
+
+
+def apply_ts_login(user, password, store=True):
+    """Log in to TournamentSoftware and keep the cookie (and, with store, the
+    credentials for auto-renew). Shared by POST /login and the portal's set_login.
+    Returns (ok, Dutch message, masked config or None)."""
+    cookie, name, err = _ts_login(user, password)
+    if err:
+        return False, err, None
+    with _lock:
+        CONFIG["cookie"] = cookie
+        if store:
+            CONFIG["login"] = {"user": str(user or "").strip(), "pass": str(password or ""), "name": name}
+        else:  # one-shot login — remember the name to show, but not the password
+            CONFIG["login"] = {"user": str(user or "").strip(), "pass": "", "name": name}
+        _cache.clear(); _mytourn["data"]=None
+        AUTH.update(ok=None, error="")  # let the next /board poll confirm validity
+        try:
+            _save_config()
+        except Exception as e:  # noqa: BLE001
+            return False, "kon config niet opslaan: %s" % e, None
+        out = _masked_config()
+    return True, ("Ingelogd als %s" % name) if name else "Ingelogd ✓", out
 
 
 def list_my_tournaments():
@@ -919,6 +983,277 @@ def device_status():
     return data
 
 
+def start_update():
+    """Start the root oneshot updater (appliance/update.sh). It must not be a
+    child of this server: it restarts us, and systemd kills our whole cgroup.
+    Returns (ok, Dutch message)."""
+    st = _update_state()
+    if st and st.get("status") == "running":
+        return False, "update loopt al"
+    try:
+        r = subprocess.run(["sudo", "-n", "/usr/bin/systemctl", "start", "--no-block",
+                            "toernooitv-update.service"], capture_output=True, timeout=10)
+        started = r.returncode == 0
+    except (OSError, subprocess.TimeoutExpired):
+        started = False
+    if started:
+        return True, "Update gestart…"
+    return False, "updater niet geïnstalleerd op deze machine (draai install-kiosk.sh)"
+
+
+# ---- remote portal sync -----------------------------------------------------
+# Outbound only: every PORTAL_INTERVAL s the box POSTs a status snapshot to
+# {PORTAL_URL}/api/box/sync and gets back pending config (by revision) and
+# commands. config.json stays the source of truth, so an unreachable portal
+# changes nothing on screen. The TS cookie and password are never sent.
+def _new_link_code():
+    c = "".join(secrets.choice(_LINK_ALPHABET) for _ in range(6))
+    return c[:3] + "-" + c[3:]
+
+
+_link = {"code": _new_link_code()}  # shown on the TV while unlinked; new per start
+# results: command results resent until a sync succeeds; warnings: from the last
+# applied portal config; myT: the account's tournaments (portal-side picker)
+_psync = {"results": [], "warnings": [], "myT": None, "myTs": 0.0, "authWarned": False}
+_sync_lock = threading.Lock()  # one sync cycle at a time
+_FATAL = ("restart", "reboot", "update")
+
+
+def _portal_url_ok(url):
+    """Only sync encrypted — plain http is allowed to localhost (tests/dev)."""
+    return bool(url) and (url.startswith("https://") or
+                          urllib.parse.urlparse(url).hostname in ("127.0.0.1", "localhost"))
+
+
+def _portal_status():
+    out = {"managed": _managed()}
+    if _portal_url_ok(PORTAL_URL) and not out["managed"]:
+        out["linkCode"] = _link["code"]
+    return out
+
+
+def _save_quietly():
+    try:
+        _save_config()
+    except Exception as e:  # noqa: BLE001
+        print("portal: kon config niet opslaan:", e)
+
+
+def _resolve_pending(p):
+    """A restart/reboot/update started for the portal reports its real outcome
+    once it is visible (caller holds _lock)."""
+    pend = p.get("pending")
+    if not pend:
+        return
+    now, kind, at = time.time(), pend.get("kind"), float(pend.get("at") or 0)
+    res = None
+    if kind in ("restart", "reboot"):
+        if at < _STARTED:  # this process started after the command ran
+            res = (True, "Herstart voltooid" if kind == "restart" else "Box opnieuw opgestart")
+    elif kind == "update":
+        st = _update_state()
+        if st and st.get("status") != "running" and now - _age(st.get("startedAt")) >= at - 2:
+            res = (st.get("status") in ("ok", "up-to-date"),
+                   str(st.get("status")) + ((": " + st["error"]) if st.get("error") else ""))
+        elif now - at > UPDATE_TIMEOUT:
+            res = (False, "geen resultaat")
+    else:
+        res = (False, "onbekende opdracht")
+    if res:
+        _psync["results"].append({"id": pend.get("id"), "ok": res[0], "output": res[1]})
+        p["pending"] = None
+        _save_quietly()
+
+
+def _portal_snapshot():
+    """The sync request body. Network probes run before taking _lock."""
+    if CONFIG.get("cookie") and time.time() - _psync["myTs"] > 300:
+        _psync["myTs"] = time.time()
+        try:
+            _psync["myT"] = list_my_tournaments().get("tournaments", [])
+        except Exception:  # noqa: BLE001
+            pass
+    status = device_status()
+    with _lock:
+        p = CONFIG.setdefault("portal", _clean_portal(None))
+        if not p.get("secret"):
+            p["secret"] = secrets.token_urlsafe(32)
+            _save_quietly()
+        _resolve_pending(p)
+        snap = {**_masked_config(),
+                "display": CONFIG.get("display") or DISPLAY_DEFAULTS,
+                "status": status, "configRev": p.get("rev", 0),
+                "results": list(_psync["results"]), "configWarnings": list(_psync["warnings"]),
+                "myTournaments": _psync["myT"], "secret": p["secret"]}
+        if not p.get("linked"):
+            snap["linkCode"] = _link["code"]
+    return snap
+
+
+def _apply_portal_config(resp):
+    """Adopt linked state + new config revision from a sync response."""
+    with _lock:
+        p = CONFIG.setdefault("portal", _clean_portal(None))
+        if not resp.get("linked"):
+            if p.get("linked"):  # unlinked in the portal: keep settings, local /beheer works again
+                p.update(linked=False, rev=0, name="", lastCmdId=0, pending=None)
+                _link["code"] = _new_link_code()
+                _save_quietly()
+            return False
+        changed = not p.get("linked") or p.get("name") != str(resp.get("name") or "")
+        p["linked"], p["name"] = True, str(resp.get("name") or "")
+        try:
+            rev = int(resp.get("configRev") or 0)
+        except (TypeError, ValueError):
+            rev = p.get("rev", 0)
+        cfg = resp.get("config")
+        if isinstance(cfg, dict) and rev != p.get("rev", 0):
+            warnings = []
+            if isinstance(cfg.get("display"), dict):
+                CONFIG["display"] = _clean_display(
+                    cfg["display"], CONFIG.get("display") or DISPLAY_DEFAULTS, warnings)
+            if isinstance(cfg.get("tournaments"), list):
+                CONFIG["tournaments"] = [_clean_t(t) for t in cfg["tournaments"]
+                                         if isinstance(t, dict) and t.get("code")]
+                _cache.clear(); _mytourn["data"] = None
+            _psync["warnings"] = warnings
+            p["rev"] = rev
+            changed = True
+        if changed:
+            _save_quietly()
+    return True
+
+
+def _sudo(args, timeout=10):
+    """Run a fixed sudoers-allowed command; (ok, stdout or Dutch reason)."""
+    try:
+        r = subprocess.run(["sudo", "-n"] + args, capture_output=True, text=True, timeout=timeout)
+    except (OSError, subprocess.TimeoutExpired):
+        return False, SUDO_MSG
+    if r.returncode != 0:
+        return False, SUDO_MSG + ((" (%s)" % r.stderr.strip()[:200]) if r.stderr.strip() else "")
+    return True, r.stdout
+
+
+def _run_command(kind, payload):
+    """Execute a non-fatal portal command; returns (ok, output)."""
+    if kind == "logs":
+        ok, out = _sudo(["/usr/bin/journalctl", "-u", "toernooitv-server", "-u", "toernooitv-kiosk",
+                         "-n", "300", "--no-pager"], timeout=20)
+        return ok, out[-200000:]
+    if kind == "set_login":
+        ok, msg, _ = apply_ts_login(payload.get("user", ""), payload.get("pass", ""), True)
+        if ok:
+            _psync["myTs"] = 0.0  # refresh the tournament picker on the next sync
+        return ok, msg
+    with _lock:
+        if kind == "clear_login":  # same as the local "Uitloggen": login and cookie
+            CONFIG["login"] = {"user": "", "pass": ""}
+            CONFIG["cookie"] = ""
+            msg = "Uitgelogd"
+        elif kind == "set_cookie":
+            ck = str(payload.get("cookie") or "").strip()
+            if not ck:
+                return False, "lege cookie"
+            CONFIG["cookie"] = ck
+            msg = "Cookie opgeslagen"
+        elif kind == "clear_cookie":
+            CONFIG["cookie"] = ""
+            msg = "Cookie gewist"
+        else:
+            return False, "onbekende opdracht: %s" % kind
+        _cache.clear(); _mytourn["data"] = None
+        _psync["myT"], _psync["myTs"] = None, 0.0
+        try:
+            _save_config()
+        except Exception as e:  # noqa: BLE001
+            return False, "kon config niet opslaan: %s" % e
+    return True, msg
+
+
+def _start_fatal(kind):
+    if kind == "restart":
+        return _sudo(["/usr/bin/systemctl", "restart", "--no-block",
+                      "toernooitv-server.service", "toernooitv-kiosk.service"])
+    if kind == "reboot":
+        return _sudo(["/sbin/reboot"])
+    return start_update()
+
+
+def _run_commands(cmds):
+    """Run each new command once: lastCmdId is persisted before running, so a
+    lost response or a restart never runs a command twice."""
+    for c in sorted((c for c in cmds if isinstance(c, dict)), key=lambda c: int(c.get("id") or 0)):
+        cid, kind = int(c.get("id") or 0), str(c.get("kind") or "")
+        payload = c.get("payload") if isinstance(c.get("payload"), dict) else {}
+        with _lock:
+            p = CONFIG.setdefault("portal", _clean_portal(None))
+            if cid <= p.get("lastCmdId", 0):
+                continue
+            if kind in _FATAL and _psync["results"]:
+                return  # report earlier results first; the follow-up sync re-delivers this one
+            p["lastCmdId"] = cid
+            if kind in _FATAL:
+                p["pending"] = {"id": cid, "kind": kind, "at": time.time()}
+            _save_quietly()
+        if kind in _FATAL:
+            ok, msg = _start_fatal(kind)
+            if ok:
+                return  # the process restarts; the outcome is reported via "pending"
+            with _lock:
+                p["pending"] = None
+                _psync["results"].append({"id": cid, "ok": False, "output": msg})
+                _save_quietly()
+            continue
+        try:
+            ok, out = _run_command(kind, payload)
+        except Exception as e:  # noqa: BLE001
+            ok, out = False, "fout: %s" % e
+        _psync["results"].append({"id": cid, "ok": ok, "output": out})
+
+
+def _sync_once():
+    """One request/response cycle. True when results wait to be reported."""
+    body = _portal_snapshot()
+    req = urllib.request.Request(
+        PORTAL_URL.rstrip("/") + "/api/box/sync", data=json.dumps(body).encode("utf-8"),
+        headers={"Content-Type": "application/json", "User-Agent": UA})
+    try:
+        with urllib.request.urlopen(req, timeout=20) as r:  # responses may carry logos
+            resp = json.loads(r.read().decode("utf-8"))
+    except urllib.error.HTTPError as e:
+        if e.code == 401 and not _psync["authWarned"]:
+            _psync["authWarned"] = True
+            print("portal: box niet herkend (401) — ontkoppel en koppel hem opnieuw in het portaal")
+        return False
+    except Exception:  # noqa: BLE001 — portal unreachable: the TV runs on local settings
+        return False
+    _psync["authWarned"] = False
+    sent = {id(r) for r in body["results"]}
+    _psync["results"] = [r for r in _psync["results"] if id(r) not in sent]
+    if not isinstance(resp, dict) or not _apply_portal_config(resp):
+        return False
+    _run_commands(resp.get("commands") or [])
+    return bool(_psync["results"])
+
+
+def portal_sync():
+    """A sync, plus quick follow-ups so command results arrive within seconds."""
+    with _sync_lock:
+        for _ in range(5):
+            if not _sync_once():
+                break
+
+
+def _portal_loop():
+    while True:
+        try:
+            portal_sync()
+        except Exception as e:  # noqa: BLE001
+            print("portal sync error:", e)
+        time.sleep(PORTAL_INTERVAL)
+
+
 # ---- http handler -----------------------------------------------------------
 class Handler(SimpleHTTPRequestHandler):
     def _json(self, obj, code=200):
@@ -988,10 +1323,10 @@ class Handler(SimpleHTTPRequestHandler):
             return
         if path == "/status":
             try:
-                self._json({**device_status(), "version": VERSION, "boxId": BOX_ID})
+                self._json({**device_status(), "version": VERSION, "boxId": BOX_ID, **_portal_status()})
             except Exception as e:  # noqa: BLE001
                 self._json({"online": True, "setupMode": False, "error": str(e),
-                            "version": VERSION, "boxId": BOX_ID})
+                            "version": VERSION, "boxId": BOX_ID, **_portal_status()})
             return
         if path == "/wifi":
             try:
@@ -1050,22 +1385,12 @@ class Handler(SimpleHTTPRequestHandler):
             self._json({"ok": False, "error": "unknown endpoint"}, 404)
             return
         if path == "/update":
-            # Start the root oneshot updater (appliance/update.sh). It must not be a
-            # child of this server: it restarts us, and systemd kills our whole cgroup.
-            st = _update_state()
-            if st and st.get("status") == "running":
-                self._json({"ok": False, "error": "update loopt al"})
-                return
-            try:
-                r = subprocess.run(["sudo", "-n", "/usr/bin/systemctl", "start", "--no-block",
-                                    "toernooitv-update.service"], capture_output=True, timeout=10)
-                started = r.returncode == 0
-            except (OSError, subprocess.TimeoutExpired):
-                started = False
-            if started:
-                self._json({"ok": True, "message": "Update gestart…"})
-            else:
-                self._json({"ok": False, "error": "updater niet geïnstalleerd op deze machine (draai install-kiosk.sh)"})
+            ok, msg = start_update()
+            self._json({"ok": True, "message": msg} if ok else {"ok": False, "error": msg})
+            return
+        if path in ("/config", "/login") and _managed():
+            # linked box: display settings, tournaments and the TS login come from the portal
+            self._json({"ok": False, "error": MANAGED_MSG}, 403)
             return
         try:
             body = self._read_json()
@@ -1103,27 +1428,12 @@ class Handler(SimpleHTTPRequestHandler):
             # Log in to tournamentsoftware.com and capture the cookie for the user.
             # store=True (default) keeps the credentials so the cookie auto-renews
             # when it expires; store=False logs in once without saving them.
-            cookie, name, err = _ts_login(body.get("user", ""), body.get("password", ""))
-            if err:
-                self._json({"ok": False, "error": err}, 200)
+            ok, msg, out = apply_ts_login(body.get("user", ""), body.get("password", ""),
+                                          body.get("store", True))
+            if not ok:
+                self._json({"ok": False, "error": msg}, 200)
                 return
-            with _lock:
-                CONFIG["cookie"] = cookie
-                if body.get("store", True):
-                    CONFIG["login"] = {"user": str(body.get("user", "")).strip(),
-                                       "pass": str(body.get("password", "")), "name": name}
-                else:  # one-shot login — remember the name to show, but not the password
-                    CONFIG["login"] = {"user": str(body.get("user", "")).strip(),
-                                       "pass": "", "name": name}
-                _cache.clear(); _mytourn["data"]=None
-                AUTH.update(ok=None, error="")  # let the next /board poll confirm validity
-                try:
-                    _save_config()
-                except Exception as e:  # noqa: BLE001
-                    self._json({"ok": False, "error": "kon config niet opslaan: %s" % e}, 500)
-                    return
-                out = _masked_config()
-            out.update(ok=True, message=("Ingelogd als %s" % name) if name else "Ingelogd ✓")
+            out.update(ok=True, message=msg)
             self._json(out)
             return
 
@@ -1178,6 +1488,12 @@ if __name__ == "__main__":
     if ip != "127.0.0.1":
         print("  on the LAN : http://%s:%d/Toernooi%%20TV.dc.html" % (ip, PORT))
     print("  configure  : Instellingen screen, or edit config.json")
+    if _portal_url_ok(PORTAL_URL):
+        threading.Thread(target=_portal_loop, daemon=True).start()
+        print("  portal     : %s (%s)" % (PORTAL_URL, ("gekoppeld: " + _portal().get("name", "")) if _managed()
+                                          else "koppelcode " + _link["code"]))
+    elif PORTAL_URL:
+        print("  portal     : WARNING %s is not https — portal sync disabled" % PORTAL_URL)
 
     primary = ThreadingHTTPServer((HOST, PORT), Handler)
     # Optional second listener on a privileged port (usually 80) so the box is
