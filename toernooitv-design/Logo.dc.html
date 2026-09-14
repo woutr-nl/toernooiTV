@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  @keyframes lp{0%,100%{opacity:1;}50%{opacity:.25;}}
+</style>
+</helmet>
+
+<!-- ===================== HEADER ===================== -->
+<div style="position:absolute; left:60px; top:48px; width:1180px;">
+  <div data-drags-parent="1" style="font:700 12px 'JetBrains Mono'; letter-spacing:4px; color:#8a8578; text-transform:uppercase; margin-bottom:14px; cursor:grab;">Toernooi TV — logo-verkenning</div>
+  <div style="display:flex; align-items:baseline; gap:20px; flex-wrap:wrap;">
+    <span style="font:900 52px Archivo; letter-spacing:-1.5px; color:#16181d;">Drie richtingen</span>
+    <span style="font:500 19px Archivo; color:#6f6a60; max-width:560px;">Allemaal binnen het bestaande systeem — Archivo, JetBrains Mono, de live-rode stip en de sportkleuren lime &amp; blauw.</span>
+  </div>
+</div>
+
+<!-- ===================== DIRECTION A — BRACKET ===================== -->
+<div style="position:absolute; left:60px; top:210px; width:1180px;">
+  <div data-drags-parent="1" style="display:flex; align-items:center; gap:12px; margin-bottom:14px; cursor:grab;">
+    <span style="font:800 13px 'JetBrains Mono'; letter-spacing:3px; color:#16181d;">01 · BRACKET</span>
+    <span style="font:500 14px Archivo; color:#8a8578;">het toernooischema — twee banen die samenkomen, met live-stip</span>
+  </div>
+  <div style="background:#fff; border-radius:3px; box-shadow:0 1px 3px rgba(0,0,0,.1); overflow:hidden;">
+    <!-- icon row -->
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:1px; background:rgba(0,0,0,.07);">
+      <!-- dark tile -->
+      <div style="background:#0b0d11; display:flex; align-items:center; justify-content:center; height:380px;">
+        <div style="position:relative; width:236px; height:184px;">
+          <div style="position:absolute; left:0; top:0; width:120px; height:92px; border-top:18px solid #c8f24a; border-right:18px solid #c8f24a; border-top-right-radius:34px;"></div>
+          <div style="position:absolute; left:0; top:92px; width:120px; height:92px; border-bottom:18px solid #3da9fc; border-right:18px solid #3da9fc; border-bottom-right-radius:34px;"></div>
+          <div style="position:absolute; left:102px; top:83px; width:84px; height:18px; background:#fff; border-radius:9px;"></div>
+          <div style="position:absolute; left:178px; top:64px; width:56px; height:56px; border-radius:50%; background:#ff3b3b; box-shadow:0 0 0 0 rgba(255,59,59,.4);"></div>
+        </div>
+      </div>
+      <!-- light tile -->
+      <div style="background:#f4f3ee; display:flex; align-items:center; justify-content:center; height:380px;">
+        <div style="position:relative; width:236px; height:184px;">
+          <div style="position:absolute; left:0; top:0; width:120px; height:92px; border-top:18px solid #16181d; border-right:18px solid #16181d; border-top-right-radius:34px;"></div>
+          <div style="position:absolute; left:0; top:92px; width:120px; height:92px; border-bottom:18px solid #16181d; border-right:18px solid #16181d; border-bottom-right-radius:34px;"></div>
+          <div style="position:absolute; left:102px; top:83px; width:84px; height:18px; background:#16181d; border-radius:9px;"></div>
+          <div style="position:absolute; left:178px; top:64px; width:56px; height:56px; border-radius:50%; background:#ff3b3b;"></div>
+        </div>
+      </div>
+    </div>
+    <!-- lockups -->
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:1px; background:rgba(0,0,0,.07);">
+      <div style="background:#0b0d11; display:flex; align-items:center; justify-content:center; height:200px;">
+        <div style="display:flex; align-items:center; gap:24px;">
+          <div style="position:relative; width:108px; height:84px;">
+            <div style="position:absolute; left:0; top:0; width:55px; height:42px; border-top:9px solid #c8f24a; border-right:9px solid #c8f24a; border-top-right-radius:16px;"></div>
+            <div style="position:absolute; left:0; top:42px; width:55px; height:42px; border-bottom:9px solid #3da9fc; border-right:9px solid #3da9fc; border-bottom-right-radius:16px;"></div>
+            <div style="position:absolute; left:46px; top:37.5px; width:40px; height:9px; background:#fff; border-radius:5px;"></div>
+            <div style="position:absolute; left:82px; top:29px; width:27px; height:27px; border-radius:50%; background:#ff3b3b;"></div>
+          </div>
+          <div style="display:flex; flex-direction:column; line-height:.96;">
+            <span style="font:800 44px Archivo; letter-spacing:-1px; color:#fff;">Toernooi<span style="color:#8a93a3;">TV</span></span>
+            <span style="font:700 12px 'JetBrains Mono'; letter-spacing:6px; color:#6f7787; margin-top:8px;">LIVE OP DE CLUB</span>
+          </div>
+        </div>
+      </div>
+      <div style="background:#f4f3ee; display:flex; align-items:center; justify-content:center; height:200px;">
+        <div style="display:flex; align-items:center; gap:24px;">
+          <div style="position:relative; width:108px; height:84px;">
+            <div style="position:absolute; left:0; top:0; width:55px; height:42px; border-top:9px solid #16181d; border-right:9px solid #16181d; border-top-right-radius:16px;"></div>
+            <div style="position:absolute; left:0; top:42px; width:55px; height:42px; border-bottom:9px solid #16181d; border-right:9px solid #16181d; border-bottom-right-radius:16px;"></div>
+            <div style="position:absolute; left:46px; top:37.5px; width:40px; height:9px; background:#16181d; border-radius:5px;"></div>
+            <div style="position:absolute; left:82px; top:29px; width:27px; height:27px; border-radius:50%; background:#ff3b3b;"></div>
+          </div>
+          <div style="display:flex; flex-direction:column; line-height:.96;">
+            <span style="font:800 44px Archivo; letter-spacing:-1px; color:#16181d;">Toernooi<span style="color:#9b958a;">TV</span></span>
+            <span style="font:700 12px 'JetBrains Mono'; letter-spacing:6px; color:#9b958a; margin-top:8px;">LIVE OP DE CLUB</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- sizes -->
+    <div style="display:flex; align-items:center; gap:30px; padding:30px 44px; border-top:1px solid rgba(0,0,0,.07);">
+      <span style="font:700 11px 'JetBrains Mono'; letter-spacing:2px; color:#9b958a;">FAVICON</span>
+      <div style="width:64px; height:64px; border-radius:15px; background:#0b0d11; display:flex; align-items:center; justify-content:center;"><div style="position:relative; width:34px; height:27px;"><div style="position:absolute; left:0; top:0; width:18px; height:13.5px; border-top:5px solid #c8f24a; border-right:5px solid #c8f24a; border-top-right-radius:6px;"></div><div style="position:absolute; left:0; top:13.5px; width:18px; height:13.5px; border-bottom:5px solid #3da9fc; border-right:5px solid #3da9fc; border-bottom-right-radius:6px;"></div><div style="position:absolute; left:15px; top:11.5px; width:13px; height:5px; background:#fff; border-radius:3px;"></div><div style="position:absolute; left:27px; top:9px; width:9px; height:9px; border-radius:50%; background:#ff3b3b;"></div></div></div>
+      <div style="width:40px; height:40px; border-radius:10px; background:#0b0d11; display:flex; align-items:center; justify-content:center;"><div style="position:relative; width:22px; height:17px;"><div style="position:absolute; left:0; top:0; width:11px; height:8.5px; border-top:3.5px solid #c8f24a; border-right:3.5px solid #c8f24a; border-top-right-radius:4px;"></div><div style="position:absolute; left:0; top:8.5px; width:11px; height:8.5px; border-bottom:3.5px solid #3da9fc; border-right:3.5px solid #3da9fc; border-bottom-right-radius:4px;"></div><div style="position:absolute; left:9px; top:7px; width:9px; height:3.5px; background:#fff; border-radius:2px;"></div><div style="position:absolute; left:17px; top:5.5px; width:6px; height:6px; border-radius:50%; background:#ff3b3b;"></div></div></div>
+      <span style="font:500 14px Archivo; color:#8a8578; max-width:460px;">De stip leeft door — record-rood = uitzending. Op klein formaat blijft het schema leesbaar.</span>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== DIRECTION B — SCREEN TILE ===================== -->
+<div style="position:absolute; left:60px; top:1140px; width:1180px;">
+  <div data-drags-parent="1" style="display:flex; align-items:center; gap:12px; margin-bottom:14px; cursor:grab;">
+    <span style="font:800 13px 'JetBrains Mono'; letter-spacing:3px; color:#16181d;">02 · SCHERM</span>
+    <span style="font:500 14px Archivo; color:#8a8578;">app-icoon: het scherm in de kantine, met de TV-monogram en live-stip</span>
+  </div>
+  <div style="background:#fff; border-radius:3px; box-shadow:0 1px 3px rgba(0,0,0,.1); overflow:hidden;">
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:1px; background:rgba(0,0,0,.07);">
+      <!-- the icon itself on neutral -->
+      <div style="background:#e7e5df; display:flex; align-items:center; justify-content:center; height:380px;">
+        <div style="position:relative; width:228px; height:228px; border-radius:54px; background:#0b0d11; box-shadow:0 24px 48px rgba(0,0,0,.28); display:flex; align-items:center; justify-content:center;">
+          <span style="font:900 116px Archivo; letter-spacing:-5px; color:#fff;">TV</span>
+          <div style="position:absolute; top:30px; right:32px; width:30px; height:30px; border-radius:50%; background:#ff3b3b; animation:lp 1.5s ease-in-out infinite;"></div>
+          <div style="position:absolute; left:46px; right:46px; bottom:40px; height:7px; border-radius:4px; background:linear-gradient(90deg,#c8f24a 0 50%,#3da9fc 50% 100%);"></div>
+        </div>
+      </div>
+      <!-- inverted / light icon -->
+      <div style="background:#0b0d11; display:flex; align-items:center; justify-content:center; height:380px;">
+        <div style="position:relative; width:228px; height:228px; border-radius:54px; background:#f4f3ee; box-shadow:0 24px 48px rgba(0,0,0,.4); display:flex; align-items:center; justify-content:center;">
+          <span style="font:900 116px Archivo; letter-spacing:-5px; color:#16181d;">TV</span>
+          <div style="position:absolute; top:30px; right:32px; width:30px; height:30px; border-radius:50%; background:#ff3b3b;"></div>
+          <div style="position:absolute; left:46px; right:46px; bottom:40px; height:7px; border-radius:4px; background:linear-gradient(90deg,#a9cf2f 0 50%,#2f8fe0 50% 100%);"></div>
+        </div>
+      </div>
+    </div>
+    <!-- lockups -->
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:1px; background:rgba(0,0,0,.07);">
+      <div style="background:#f4f3ee; display:flex; align-items:center; justify-content:center; height:200px;">
+        <div style="display:flex; align-items:center; gap:22px;">
+          <div style="position:relative; width:86px; height:86px; border-radius:21px; background:#0b0d11; display:flex; align-items:center; justify-content:center;">
+            <span style="font:900 44px Archivo; letter-spacing:-2px; color:#fff;">TV</span>
+            <div style="position:absolute; top:12px; right:13px; width:13px; height:13px; border-radius:50%; background:#ff3b3b;"></div>
+          </div>
+          <div style="display:flex; flex-direction:column; line-height:1;">
+            <span style="font:800 40px Archivo; letter-spacing:-.5px; color:#16181d;">Toernooi TV</span>
+            <span style="font:600 16px Archivo; color:#8a8578; margin-top:7px;">live banen &amp; uitslagen</span>
+          </div>
+        </div>
+      </div>
+      <div style="background:#0b0d11; display:flex; align-items:center; justify-content:center; height:200px;">
+        <div style="display:flex; align-items:center; gap:22px;">
+          <div style="position:relative; width:86px; height:86px; border-radius:21px; background:#f4f3ee; display:flex; align-items:center; justify-content:center;">
+            <span style="font:900 44px Archivo; letter-spacing:-2px; color:#16181d;">TV</span>
+            <div style="position:absolute; top:12px; right:13px; width:13px; height:13px; border-radius:50%; background:#ff3b3b;"></div>
+          </div>
+          <div style="display:flex; flex-direction:column; line-height:1;">
+            <span style="font:800 40px Archivo; letter-spacing:-.5px; color:#fff;">Toernooi TV</span>
+            <span style="font:600 16px Archivo; color:#8b93a3; margin-top:7px;">live banen &amp; uitslagen</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div style="display:flex; align-items:center; gap:30px; padding:30px 44px; border-top:1px solid rgba(0,0,0,.07);">
+      <span style="font:700 11px 'JetBrains Mono'; letter-spacing:2px; color:#9b958a;">FAVICON</span>
+      <div style="position:relative; width:64px; height:64px; border-radius:16px; background:#0b0d11; display:flex; align-items:center; justify-content:center;"><span style="font:900 33px Archivo; letter-spacing:-1.5px; color:#fff;">TV</span><div style="position:absolute; top:9px; right:10px; width:10px; height:10px; border-radius:50%; background:#ff3b3b;"></div></div>
+      <div style="position:relative; width:40px; height:40px; border-radius:11px; background:#0b0d11; display:flex; align-items:center; justify-content:center;"><span style="font:900 21px Archivo; letter-spacing:-1px; color:#fff;">TV</span><div style="position:absolute; top:6px; right:6px; width:7px; height:7px; border-radius:50%; background:#ff3b3b;"></div></div>
+      <span style="font:500 14px Archivo; color:#8a8578; max-width:460px;">Sluit naadloos aan op de huidige header-tegel. De sportstreep onderaan verdwijnt netjes op klein formaat.</span>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== DIRECTION C — WORDMARK ===================== -->
+<div style="position:absolute; left:60px; top:2070px; width:1180px;">
+  <div data-drags-parent="1" style="display:flex; align-items:center; gap:12px; margin-bottom:14px; cursor:grab;">
+    <span style="font:800 13px 'JetBrains Mono'; letter-spacing:3px; color:#16181d;">03 · WOORDMERK</span>
+    <span style="font:500 14px Archivo; color:#8a8578;">typografisch — de live-stip als opname-indicator, TV in een mono-pill</span>
+  </div>
+  <div style="background:#fff; border-radius:3px; box-shadow:0 1px 3px rgba(0,0,0,.1); overflow:hidden;">
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:1px; background:rgba(0,0,0,.07);">
+      <div style="background:#0b0d11; display:flex; align-items:center; justify-content:center; height:380px;">
+        <div style="display:flex; align-items:baseline; gap:4px;">
+          <span style="font:900 88px Archivo; letter-spacing:-3px; color:#fff;">toernooi</span>
+          <span style="display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:50%; background:#ff3b3b; transform:translateY(-6px);"></span>
+          <span style="display:inline-flex; align-items:center; gap:8px; margin-left:14px; padding:9px 18px; border-radius:14px; background:#fff;">
+            <span style="font:800 44px Archivo; letter-spacing:-1px; color:#0b0d11;">tv</span>
+          </span>
+        </div>
+      </div>
+      <div style="background:#f4f3ee; display:flex; align-items:center; justify-content:center; height:380px;">
+        <div style="display:flex; align-items:baseline; gap:4px;">
+          <span style="font:900 88px Archivo; letter-spacing:-3px; color:#16181d;">toernooi</span>
+          <span style="display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:50%; background:#ff3b3b; transform:translateY(-6px);"></span>
+          <span style="display:inline-flex; align-items:center; gap:8px; margin-left:14px; padding:9px 18px; border-radius:14px; background:#16181d;">
+            <span style="font:800 44px Archivo; letter-spacing:-1px; color:#fff;">tv</span>
+          </span>
+        </div>
+      </div>
+    </div>
+    <!-- stacked + horizontal alt -->
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:1px; background:rgba(0,0,0,.07);">
+      <div style="background:#f4f3ee; display:flex; align-items:center; justify-content:center; height:220px;">
+        <div style="display:flex; flex-direction:column; align-items:flex-start; line-height:.86;">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <span style="font:700 13px 'JetBrains Mono'; letter-spacing:7px; color:#9b958a;">TENNIS &amp; PADEL</span>
+            <span style="width:8px; height:8px; border-radius:50%; background:#ff3b3b;"></span>
+          </div>
+          <span style="font:900 64px Archivo; letter-spacing:-2px; color:#16181d; margin-top:10px;">Toernooi TV</span>
+        </div>
+      </div>
+      <div style="background:#0b0d11; display:flex; align-items:center; justify-content:center; height:220px;">
+        <div style="display:flex; flex-direction:column; align-items:flex-start; line-height:.86;">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <span style="font:700 13px 'JetBrains Mono'; letter-spacing:7px; color:#6f7787;">TENNIS &amp; PADEL</span>
+            <span style="width:8px; height:8px; border-radius:50%; background:#ff3b3b;"></span>
+          </div>
+          <span style="font:900 64px Archivo; letter-spacing:-2px; color:#fff; margin-top:10px;">Toernooi TV</span>
+        </div>
+      </div>
+    </div>
+    <div style="display:flex; align-items:center; gap:14px; padding:30px 44px; border-top:1px solid rgba(0,0,0,.07);">
+      <span style="display:inline-flex; align-items:center; gap:10px; padding:8px 16px; border-radius:999px; background:#0b0d11;"><span style="font:800 18px Archivo; letter-spacing:-.3px; color:#fff;">toernooi</span><span style="width:9px; height:9px; border-radius:50%; background:#ff3b3b;"></span><span style="font:800 18px Archivo; color:#fff;">tv</span></span>
+      <span style="font:500 14px Archivo; color:#8a8578; max-width:520px;">Werkt ook als platte tekst / domeinnaam (toernooi.tv). Geen icoon nodig — de stip draagt de identiteit.</span>
+    </div>
+  </div>
+</div>
+
+</x-dc>
+</body>
+</html>

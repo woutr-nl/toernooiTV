@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:#eae7e0;}
+</style>
+</helmet>
+
+<div style="min-height:100vh; background:#eae7e0; font-family:Archivo, sans-serif; color:#16181d; padding:56px 32px 90px;">
+  <div style="max-width:1100px; margin:0 auto; display:flex; flex-direction:column; gap:26px;">
+
+    <!-- TITLE -->
+    <div style="display:flex; align-items:flex-end; justify-content:space-between; gap:24px; flex-wrap:wrap;">
+      <div>
+        <div style="font:700 12px 'JetBrains Mono'; letter-spacing:4px; color:#8a8578; text-transform:uppercase; margin-bottom:12px;">Merkrichtlijn · v1</div>
+        <div style="font:900 46px Archivo; letter-spacing:-1.5px;">Toernooi&#8202;TV — Logo</div>
+      </div>
+      <div style="font:500 15px Archivo; color:#6f6a60; max-width:380px; text-align:right;">&ldquo;On Air&rdquo;-identiteit. Eén systeem: rood = live tv, lime + blauw = de twee sporten, voorwaartse lean = beweging.</div>
+    </div>
+
+    <!-- HERO / PRIMARY -->
+    <div style="background:#0b0d11; border-radius:18px; padding:80px 60px; display:flex; align-items:center; justify-content:center; overflow:hidden; position:relative;">
+      <div style="position:absolute; inset:0; background:repeating-linear-gradient(0deg, rgba(255,255,255,.02) 0 2px, transparent 2px 5px);"></div>
+      <div style="position:relative; transform:skewX(-9deg);">
+        <div style="display:flex; align-items:center; gap:18px;">
+          <span style="font:900 104px Archivo; letter-spacing:-4px; line-height:.84; color:#fff;">Toernooi</span>
+          <span style="display:inline-flex; align-items:center; padding:7px 24px 13px; background:#ff2e2e;"><span style="font:900 96px Archivo; letter-spacing:-4px; line-height:.84; color:#fff;">TV</span></span>
+        </div>
+        <div style="height:12px; margin-top:20px; background:linear-gradient(90deg,#c8f24a,#3da9fc);"></div>
+      </div>
+    </div>
+
+    <!-- VARIANTS GRID -->
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:26px;">
+      <!-- primary on light -->
+      <div style="background:#fff; border:1px solid rgba(0,0,0,.07); border-radius:18px; padding:46px; display:flex; flex-direction:column; gap:24px;">
+        <div style="font:700 11px 'JetBrains Mono'; letter-spacing:3px; color:#9b958a;">PRIMAIR · OP LICHT</div>
+        <div style="flex:1; display:flex; align-items:center;">
+          <div style="transform:skewX(-9deg);">
+            <div style="display:flex; align-items:center; gap:10px;">
+              <span style="font:900 54px Archivo; letter-spacing:-2px; color:#16181d;">Toernooi</span>
+              <span style="display:inline-flex; align-items:center; padding:4px 13px 8px; background:#ff2e2e;"><span style="font:900 50px Archivo; letter-spacing:-2px; color:#fff;">TV</span></span>
+            </div>
+            <div style="height:7px; margin-top:10px; background:linear-gradient(90deg,#c8f24a,#3da9fc);"></div>
+          </div>
+        </div>
+      </div>
+      <!-- app icon -->
+      <div style="background:#fff; border:1px solid rgba(0,0,0,.07); border-radius:18px; padding:46px; display:flex; flex-direction:column; gap:24px;">
+        <div style="font:700 11px 'JetBrains Mono'; letter-spacing:3px; color:#9b958a;">APP-ICOON</div>
+        <div style="flex:1; display:flex; align-items:center; gap:28px;">
+          <div style="position:relative; width:150px; height:150px; border-radius:36px; background:#ff2e2e; box-shadow:0 16px 34px rgba(255,46,46,.28); display:flex; flex-direction:column; align-items:center; justify-content:center; padding-bottom:17px; flex:none;">
+            <span style="font:900 19px Archivo; letter-spacing:-.6px; color:#fff; transform:skewX(-9deg) scaleX(1.22);">toernooi</span>
+            <span style="font:900 66px Archivo; letter-spacing:-3px; line-height:.82; color:#fff; transform:skewX(-9deg);">TV</span>
+            <div style="position:absolute; left:27px; right:27px; bottom:21px; height:7px; border-radius:4px; background:linear-gradient(90deg,#c8f24a,#3da9fc);"></div>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:13px;">
+            <div style="position:relative; width:66px; height:66px; border-radius:16px; background:#ff2e2e; display:flex; align-items:center; justify-content:center; padding-bottom:7px; flex:none;">
+              <span style="position:absolute; top:11px; font:900 9px Archivo; letter-spacing:-.3px; color:#fff; transform:skewX(-9deg) scaleX(1.22);">toernooi</span>
+              <span style="font:900 30px Archivo; letter-spacing:-1.5px; color:#fff; transform:skewX(-9deg); margin-top:5px;">TV</span>
+              <div style="position:absolute; left:12px; right:12px; bottom:9px; height:3px; border-radius:2px; background:linear-gradient(90deg,#c8f24a,#3da9fc);"></div>
+            </div>
+            <span style="font:600 12px 'JetBrains Mono'; color:#9b958a;">512 · 64</span>
+          </div>
+        </div>
+      </div>
+      <!-- compact / powered-by -->
+      <div style="background:#0b0d11; border-radius:18px; padding:46px; display:flex; flex-direction:column; gap:24px;">
+        <div style="font:700 11px 'JetBrains Mono'; letter-spacing:3px; color:#6f7787;">COMPACT · &lsquo;POWERED BY&rsquo;</div>
+        <div style="flex:1; display:flex; align-items:center;">
+          <div style="display:flex; align-items:center; gap:5px; transform:skewX(-9deg);">
+            <span style="font:900 30px Archivo; letter-spacing:-1px; color:#fff;">Toernooi</span>
+            <span style="display:inline-flex; align-items:center; padding:1px 8px 3px; background:#ff2e2e;"><span style="font:900 27px Archivo; letter-spacing:-1px; color:#fff;">TV</span></span>
+          </div>
+        </div>
+      </div>
+      <!-- favicon -->
+      <div style="background:#fff; border:1px solid rgba(0,0,0,.07); border-radius:18px; padding:46px; display:flex; flex-direction:column; gap:24px;">
+        <div style="font:700 11px 'JetBrains Mono'; letter-spacing:3px; color:#9b958a;">FAVICON · TV-ONLY</div>
+        <div style="flex:1; display:flex; align-items:center; gap:20px;">
+          <div style="position:relative; width:64px; height:64px; border-radius:15px; background:#ff2e2e; display:flex; align-items:center; justify-content:center; flex:none;">
+            <span style="font:900 33px Archivo; letter-spacing:-1.5px; color:#fff; transform:skewX(-9deg);">TV</span>
+            <div style="position:absolute; left:13px; right:13px; bottom:11px; height:3px; border-radius:2px; background:linear-gradient(90deg,#c8f24a,#3da9fc);"></div>
+          </div>
+          <div style="position:relative; width:40px; height:40px; border-radius:10px; background:#ff2e2e; display:flex; align-items:center; justify-content:center; flex:none;">
+            <span style="font:900 21px Archivo; letter-spacing:-1px; color:#fff; transform:skewX(-9deg);">TV</span>
+          </div>
+          <span style="font:500 13px Archivo; color:#8a8578; max-width:170px;">Onder ~48px valt &lsquo;toernooi&rsquo; en de rally-streep weg.</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- COLOURS -->
+    <div style="background:#fff; border:1px solid rgba(0,0,0,.07); border-radius:18px; padding:42px 46px;">
+      <div style="font:800 22px Archivo; margin-bottom:6px;">Kleur</div>
+      <div style="font:500 14px Archivo; color:#8a8578; margin-bottom:28px;">Rood is exclusief voor live/tv. Lime + blauw verschijnen alleen samen, als rally-streep — nooit los in het logo.</div>
+      <div style="display:grid; grid-template-columns:repeat(5, 1fr); gap:18px;">
+        <sc-for list="{{ colors }}" as="c" hint-placeholder-count="5">
+          <div style="display:flex; flex-direction:column; gap:11px;">
+            <div style="height:84px; border-radius:12px; background:{{ c.bg }}; border:1px solid rgba(0,0,0,.06);"></div>
+            <div style="display:flex; flex-direction:column; gap:2px;">
+              <span style="font:700 14px Archivo; color:#16181d;">{{ c.name }}</span>
+              <span style="font:600 12px 'JetBrains Mono'; color:#8a8578; text-transform:uppercase;">{{ c.hex }}</span>
+              <span style="font:500 12px Archivo; color:#9b958a;">{{ c.role }}</span>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+      <div style="margin-top:24px; display:flex; align-items:center; gap:16px;">
+        <div style="height:32px; width:240px; border-radius:8px; background:linear-gradient(90deg,#c8f24a,#3da9fc);"></div>
+        <span style="font:600 13px 'JetBrains Mono'; color:#8a8578;">rally — linear-gradient(90deg, #C8F24A, #3DA9FC)</span>
+      </div>
+    </div>
+
+    <!-- TYPE + CONSTRUCTION -->
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:26px;">
+      <div style="background:#fff; border:1px solid rgba(0,0,0,.07); border-radius:18px; padding:42px 46px;">
+        <div style="font:800 22px Archivo; margin-bottom:22px;">Typografie</div>
+        <div style="display:flex; flex-direction:column; gap:6px; margin-bottom:24px;">
+          <span style="font:900 40px Archivo; letter-spacing:-1.5px;">Archivo</span>
+          <span style="font:600 13px 'JetBrains Mono'; color:#8a8578;">Logo &amp; koppen · 900 / 800</span>
+          <div style="display:flex; gap:14px; align-items:baseline; margin-top:8px; flex-wrap:wrap;">
+            <span style="font:400 22px Archivo;">400</span><span style="font:600 22px Archivo;">600</span><span style="font:800 22px Archivo;">800</span><span style="font:900 22px Archivo;">900</span>
+          </div>
+        </div>
+        <div style="height:1px; background:rgba(0,0,0,.07); margin:8px 0 20px;"></div>
+        <div style="display:flex; flex-direction:column; gap:6px;">
+          <span style="font:700 26px 'JetBrains Mono'; letter-spacing:1px;">JetBrains Mono</span>
+          <span style="font:600 13px 'JetBrains Mono'; color:#8a8578;">Labels, tijd, scores · 500 / 700</span>
+        </div>
+      </div>
+      <div style="background:#fff; border:1px solid rgba(0,0,0,.07); border-radius:18px; padding:42px 46px;">
+        <div style="font:800 22px Archivo; margin-bottom:22px;">Constructie</div>
+        <div style="display:flex; flex-direction:column; gap:16px;">
+          <div style="display:flex; align-items:flex-start; gap:13px;"><span style="width:8px; height:8px; border-radius:50%; background:#ff2e2e; margin-top:7px; flex:none;"></span><span style="font:500 15px Archivo; color:#3a3833;"><b>Lean —</b> hele lockup <code style="font:600 13px 'JetBrains Mono'; background:#f0eee8; padding:1px 6px; border-radius:5px;">skewX(-9deg)</code>, altijd vooruit.</span></div>
+          <div style="display:flex; align-items:flex-start; gap:13px;"><span style="width:8px; height:8px; border-radius:50%; background:#c8f24a; margin-top:7px; flex:none;"></span><span style="font:500 15px Archivo; color:#3a3833;"><b>TV-plaat —</b> massief rood blok, &lsquo;TV&rsquo; in wit uitgespaard.</span></div>
+          <div style="display:flex; align-items:flex-start; gap:13px;"><span style="width:8px; height:8px; border-radius:50%; background:#3da9fc; margin-top:7px; flex:none;"></span><span style="font:500 15px Archivo; color:#3a3833;"><b>Rally-streep —</b> onder de volledige lockup, hoogte ≈ 11% van de &lsquo;TV&rsquo;-hoogte.</span></div>
+          <div style="display:flex; align-items:flex-start; gap:13px;"><span style="width:8px; height:8px; border-radius:50%; background:#16181d; margin-top:7px; flex:none;"></span><span style="font:500 15px Archivo; color:#3a3833;"><b>Vrije ruimte —</b> minimaal de hoogte van de &lsquo;T&rsquo; rondom.</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- DO / DONT -->
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:26px;">
+      <div style="background:#fff; border:1px solid rgba(0,0,0,.07); border-radius:18px; padding:34px 38px;">
+        <div style="display:flex; align-items:center; gap:9px; margin-bottom:18px;"><span style="font:800 14px Archivo; color:#1f8a4c;">✓ WEL</span></div>
+        <div style="display:flex; flex-direction:column; gap:10px; font:500 14px Archivo; color:#3a3833;">
+          <span>Wit logo op donker, inkt-logo op licht.</span>
+          <span>Rood uitsluitend in de TV-plaat (= live).</span>
+          <span>Rally-streep over de volle breedte.</span>
+        </div>
+      </div>
+      <div style="background:#fff; border:1px solid rgba(0,0,0,.07); border-radius:18px; padding:34px 38px;">
+        <div style="display:flex; align-items:center; gap:9px; margin-bottom:18px;"><span style="font:800 14px Archivo; color:#c4322b;">✕ NIET</span></div>
+        <div style="display:flex; flex-direction:column; gap:10px; font:500 14px Archivo; color:#3a3833;">
+          <span>Niet rechtop zetten (lean weglaten).</span>
+          <span>Lime/blauw niet los als tekstkleur gebruiken.</span>
+          <span>De plaat niet recht/zonder rood tonen.</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ASSETS -->
+    <div style="background:#fff; border:1px solid rgba(0,0,0,.07); border-radius:18px; padding:42px 46px;">
+      <div style="display:flex; align-items:baseline; justify-content:space-between; margin-bottom:24px;">
+        <span style="font:800 22px Archivo;">PNG-bestanden</span>
+        <span style="font:600 12px 'JetBrains Mono'; color:#9b958a;">/brand · transparant</span>
+      </div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px;">
+        <div style="grid-column:1 / -1; background:#0b0d11; border-radius:14px; padding:34px 40px; display:flex; align-items:center; justify-content:space-between; gap:20px;">
+          <img src="brand/toernooitv-lockup-dark.png" alt="Toernooi TV lockup wit" style="height:78px; width:auto;">
+          <span style="font:600 12px 'JetBrains Mono'; color:#6f7787; text-align:right;">toernooitv-lockup-dark.png<br>1421×380</span>
+        </div>
+        <div style="background:#f4f3ee; border:1px solid rgba(0,0,0,.06); border-radius:14px; padding:30px 34px; display:flex; align-items:center; justify-content:space-between; gap:16px;">
+          <img src="brand/toernooitv-lockup-light.png" alt="Toernooi TV lockup inkt" style="height:54px; width:auto;">
+          <span style="font:600 11px 'JetBrains Mono'; color:#9b958a; text-align:right;">lockup-light.png</span>
+        </div>
+        <div style="background:#e7e5df; border:1px solid rgba(0,0,0,.06); border-radius:14px; padding:24px 34px; display:flex; align-items:center; justify-content:space-between; gap:16px;">
+          <img src="brand/toernooitv-icon.png" alt="Toernooi TV app-icoon" style="height:96px; width:96px;">
+          <span style="font:600 11px 'JetBrains Mono'; color:#9b958a; text-align:right;">icon.png<br>1024×1024</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- CODE -->
+    <div style="background:#0b0d11; border-radius:18px; padding:38px 42px;">
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px;">
+        <span style="font:800 20px Archivo; color:#fff;">Voor Claude Code</span>
+        <span style="font:700 11px 'JetBrains Mono'; letter-spacing:2px; color:#6f7787;">HTML + CSS · DROP-IN</span>
+      </div>
+      <pre style="font:500 13px/1.65 'JetBrains Mono'; color:#cdd3dd; white-space:pre-wrap; word-break:break-word;">{{ code }}</pre>
+    </div>
+
+  </div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      colors: [
+        { name: 'Ink', hex: '#0B0D11', role: 'achtergrond', bg: '#0b0d11' },
+        { name: 'Paper', hex: '#F4F3EE', role: 'licht vlak', bg: '#f4f3ee' },
+        { name: 'Live red', hex: '#FF2E2E', role: 'tv / live', bg: '#ff2e2e' },
+        { name: 'Tennis lime', hex: '#C8F24A', role: 'rally', bg: '#c8f24a' },
+        { name: 'Padel blue', hex: '#3DA9FC', role: 'rally', bg: '#3da9fc' },
+      ],
+      code: [
+        '/* tokens */',
+        ':root{',
+        '  --tv-ink:#0B0D11; --tv-paper:#F4F3EE;',
+        '  --tv-live:#FF2E2E;        /* TV-plaat / live  */',
+        '  --tv-tennis:#C8F24A;      /* rally links      */',
+        '  --tv-padel:#3DA9FC;       /* rally rechts     */',
+        '  --tv-rally:linear-gradient(90deg,#C8F24A,#3DA9FC);',
+        '}',
+        '',
+        '<!-- primaire lockup -->',
+        '<div class="ttv-logo">',
+        '  <div class="ttv-row">',
+        '    <span class="ttv-word">Toernooi</span>',
+        '    <span class="ttv-plate"><span>TV</span></span>',
+        '  </div>',
+        '  <div class="ttv-rally"></div>',
+        '</div>',
+        '',
+        '.ttv-logo  { transform:skewX(-9deg); width:fit-content; }',
+        '.ttv-row   { display:flex; align-items:center; gap:.18em; }',
+        '.ttv-word,',
+        '.ttv-plate span{',
+        '  font:900 1em/.84 Archivo,sans-serif;',
+        '  letter-spacing:-.045em; color:#fff;   /* #16181D op licht */',
+        '}',
+        '.ttv-plate { display:inline-flex; padding:.07em .24em .13em;',
+        '             background:var(--tv-live); }',
+        '.ttv-rally { height:.12em; margin-top:.2em; background:var(--tv-rally); }',
+        '/* schaal alles met font-size op .ttv-row; .ttv-word ~1.08em groter dan plaat */',
+      ].join('\n'),
+    };
+  }
+}
+
+</script>
+</body>
+</html>

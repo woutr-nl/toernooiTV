@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:#eae7e0;}
+  @keyframes lp{0%,100%{opacity:1;}50%{opacity:.32;}}
+  ::placeholder{color:#a8a399;}
+  input[type=range].ttv{-webkit-appearance:none;appearance:none;height:6px;border-radius:3px;background:#dcd8cf;outline:none;}
+  input[type=range].ttv::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;border-radius:50%;background:#16181d;cursor:pointer;border:3px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.3);}
+  input[type=range].ttv::-moz-range-thumb{width:14px;height:14px;border-radius:50%;background:#16181d;cursor:pointer;border:3px solid #fff;}
+</style>
+</helmet>
+
+<div style="min-height:100vh; background:#eae7e0; font-family:Archivo, sans-serif; color:#16181d; padding:56px 32px 100px;">
+<div style="max-width:1120px; margin:0 auto; display:flex; flex-direction:column; gap:26px;">
+
+  <!-- ===== TITLE ===== -->
+  <div style="display:flex; align-items:flex-end; justify-content:space-between; gap:24px; flex-wrap:wrap;">
+    <div>
+      <div style="font:700 12px 'JetBrains Mono'; letter-spacing:4px; color:#8a8578; text-transform:uppercase; margin-bottom:12px;">Designsysteem · v1</div>
+      <div style="font:900 48px Archivo; letter-spacing:-1.6px; line-height:.95;">Toernooi&#8202;TV — UI&nbsp;Kit</div>
+    </div>
+    <div style="font:500 15px Archivo; color:#6f6a60; max-width:400px; text-align:right;">Eén &ldquo;On Air&rdquo;-systeem. Donker beheer &amp; lichte web, helder uitzend-scherm. Rood = live, lime + blauw = de rally, voorwaartse lean = beweging.</div>
+  </div>
+
+  <!-- ===== HERO BANNER ===== -->
+  <div style="background:radial-gradient(120% 130% at 80% -20%, #18222f 0%, #0b0d11 60%); border-radius:18px; padding:64px 60px; overflow:hidden; position:relative; display:flex; align-items:center; justify-content:space-between; gap:40px; flex-wrap:wrap;">
+    <div style="position:absolute; inset:0; background:repeating-linear-gradient(0deg, rgba(255,255,255,.02) 0 2px, transparent 2px 5px);"></div>
+    <div style="position:relative;">
+      <div style="display:inline-flex; align-items:center; gap:11px; padding:8px 16px; border-radius:999px; background:rgba(255,46,46,.13); border:1px solid rgba(255,46,46,.32); margin-bottom:26px;">
+        <span style="width:9px; height:9px; border-radius:50%; background:#ff2e2e; animation:lp 1.4s ease-in-out infinite;"></span>
+        <span style="font:700 12px 'JetBrains Mono'; letter-spacing:4px; color:#ff8a7a;">DESIGN ON AIR</span>
+      </div>
+      <div style="transform:skewX(-9deg);">
+        <div style="display:flex; align-items:center; gap:14px;">
+          <span style="font:900 76px Archivo; letter-spacing:-3px; line-height:.84; color:#fff;">Toernooi</span>
+          <span style="display:inline-flex; align-items:center; padding:6px 18px 11px; background:#ff2e2e;"><span style="font:900 70px Archivo; letter-spacing:-3px; line-height:.84; color:#fff;">TV</span></span>
+        </div>
+        <div style="height:10px; margin-top:16px; background:linear-gradient(90deg,#c8f24a,#3da9fc);"></div>
+      </div>
+    </div>
+    <div style="position:relative; display:flex; flex-direction:column; gap:10px; min-width:200px;">
+      <span style="font:700 11px 'JetBrains Mono'; letter-spacing:3px; color:#6f7787;">IN DIT SYSTEEM</span>
+      <span style="font:600 15px Archivo; color:#aeb6c4; line-height:1.7;">Kleur &amp; oppervlak<br>Typografie<br>Beweging &amp; lean<br>UI-componenten<br>Uitzend-componenten</span>
+    </div>
+  </div>
+
+  <!-- ===== COLOR ===== -->
+  <div style="background:#fff; border:1px solid rgba(0,0,0,.07); border-radius:18px; padding:42px 46px;">
+    <div style="display:flex; align-items:baseline; gap:14px; margin-bottom:6px;">
+      <span style="font:800 24px Archivo;">Kleur</span>
+      <span style="font:700 11px 'JetBrains Mono'; letter-spacing:2px; color:#9b958a;">01 · FOUNDATIONS</span>
+    </div>
+    <div style="font:500 14px Archivo; color:#8a8578; margin-bottom:26px; max-width:640px;">Rood is exclusief voor live/tv. Lime + blauw verschijnen samen als rally-streep — nooit los als tekstkleur. Sportkleuren coderen de twee disciplines op het scherm.</div>
+
+    <div style="font:700 11px 'JetBrains Mono'; letter-spacing:2px; color:#9b958a; margin-bottom:14px;">CORE</div>
+    <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:16px; margin-bottom:28px;">
+      <div style="display:flex; flex-direction:column; gap:10px;"><div style="height:76px; border-radius:12px; background:#0B0D11;"></div><div><div style="font:700 14px Archivo;">Ink</div><div style="font:600 12px 'JetBrains Mono'; color:#8a8578;">#0B0D11</div><div style="font:500 12px Archivo; color:#9b958a;">scherm- &amp; beheer-bg</div></div></div>
+      <div style="display:flex; flex-direction:column; gap:10px;"><div style="height:76px; border-radius:12px; background:#16181D;"></div><div><div style="font:700 14px Archivo;">Ink 80</div><div style="font:600 12px 'JetBrains Mono'; color:#8a8578;">#16181D</div><div style="font:500 12px Archivo; color:#9b958a;">tekst op licht</div></div></div>
+      <div style="display:flex; flex-direction:column; gap:10px;"><div style="height:76px; border-radius:12px; background:#F4F3EE; border:1px solid rgba(0,0,0,.07);"></div><div><div style="font:700 14px Archivo;">Paper</div><div style="font:600 12px 'JetBrains Mono'; color:#8a8578;">#F4F3EE</div><div style="font:500 12px Archivo; color:#9b958a;">licht oppervlak</div></div></div>
+      <div style="display:flex; flex-direction:column; gap:10px;"><div style="height:76px; border-radius:12px; background:#E7E5DF; border:1px solid rgba(0,0,0,.07);"></div><div><div style="font:700 14px Archivo;">Sand</div><div style="font:600 12px 'JetBrains Mono'; color:#8a8578;">#E7E5DF</div><div style="font:500 12px Archivo; color:#9b958a;">pagina-bg</div></div></div>
+    </div>
+
+    <div style="font:700 11px 'JetBrains Mono'; letter-spacing:2px; color:#9b958a; margin-bottom:14px;">BRAND</div>
+    <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:16px; margin-bottom:28px;">
+      <div style="display:flex; flex-direction:column; gap:10px;"><div style="height:76px; border-radius:12px; background:#FF2E2E;"></div><div><div style="font:700 14px Archivo;">Live red</div><div style="font:600 12px 'JetBrains Mono'; color:#8a8578;">#FF2E2E</div><div style="font:500 12px Archivo; color:#9b958a;">tv-plaat / live</div></div></div>
+      <div style="display:flex; flex-direction:column; gap:10px;"><div style="height:76px; border-radius:12px; background:#FF5A3C;"></div><div><div style="font:700 14px Archivo;">Action</div><div style="font:600 12px 'JetBrains Mono'; color:#8a8578;">#FF5A3C</div><div style="font:500 12px Archivo; color:#9b958a;">knoppen / CTA</div></div></div>
+      <div style="display:flex; flex-direction:column; gap:10px;"><div style="height:76px; border-radius:12px; background:linear-gradient(90deg,#c8f24a,#3da9fc);"></div><div><div style="font:700 14px Archivo;">Rally</div><div style="font:600 12px 'JetBrains Mono'; color:#8a8578;">90° · lime→blue</div><div style="font:500 12px Archivo; color:#9b958a;">de streep</div></div></div>
+      <div style="display:flex; flex-direction:column; gap:10px;"><div style="height:76px; border-radius:12px; background:#0B0D11; display:flex; align-items:center; justify-content:center;"><span style="width:11px; height:11px; border-radius:50%; background:#37d67a;"></span></div><div><div style="font:700 14px Archivo;">Online</div><div style="font:600 12px 'JetBrains Mono'; color:#8a8578;">#37D67A</div><div style="font:500 12px Archivo; color:#9b958a;">verbindings-status</div></div></div>
+    </div>
+
+    <div style="font:700 11px 'JetBrains Mono'; letter-spacing:2px; color:#9b958a; margin-bottom:14px;">SPORT &amp; SCHERM</div>
+    <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:16px;">
+      <div style="display:flex; flex-direction:column; gap:10px;"><div style="height:76px; border-radius:12px; background:#C8F24A;"></div><div><div style="font:700 14px Archivo;">Tennis lime</div><div style="font:600 12px 'JetBrains Mono'; color:#8a8578;">#C8F24A</div><div style="font:500 12px Archivo; color:#9b958a;">tennis-accent</div></div></div>
+      <div style="display:flex; flex-direction:column; gap:10px;"><div style="height:76px; border-radius:12px; background:#3DA9FC;"></div><div><div style="font:700 14px Archivo;">Padel blue</div><div style="font:600 12px 'JetBrains Mono'; color:#8a8578;">#3DA9FC</div><div style="font:500 12px Archivo; color:#9b958a;">padel-accent</div></div></div>
+      <div style="display:flex; flex-direction:column; gap:10px;"><div style="height:76px; border-radius:12px; background:#C6A15B;"></div><div><div style="font:700 14px Archivo;">Results gold</div><div style="font:600 12px 'JetBrains Mono'; color:#8a8578;">#C6A15B</div><div style="font:500 12px Archivo; color:#9b958a;">uitslagen</div></div></div>
+      <div style="display:flex; flex-direction:column; gap:10px;"><div style="height:76px; border-radius:12px; background:#7DA7D4;"></div><div><div style="font:700 14px Archivo;">Sponsor blue</div><div style="font:600 12px 'JetBrains Mono'; color:#8a8578;">#7DA7D4</div><div style="font:500 12px Archivo; color:#9b958a;">sponsorslide</div></div></div>
+    </div>
+  </div>
+
+  <!-- ===== SURFACES ===== -->
+  <div style="background:#fff; border:1px solid rgba(0,0,0,.07); border-radius:18px; padding:42px 46px;">
+    <div style="display:flex; align-items:baseline; gap:14px; margin-bottom:6px;">
+      <span style="font:800 24px Archivo;">Oppervlakken</span>
+      <span style="font:700 11px 'JetBrains Mono'; letter-spacing:2px; color:#9b958a;">02 · FOUNDATIONS</span>
+    </div>
+    <div style="font:500 14px Archivo; color:#8a8578; margin-bottom:26px; max-width:640px;">Het uitzend-scherm staat op diepe radiale gradiënten met een fijne scanline-textuur — &ldquo;tv-zwart&rdquo;, niet vlak zwart. Elk slide-type heeft een eigen lichtbron.</div>
+    <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:16px;">
+      <div style="border-radius:14px; overflow:hidden; border:1px solid rgba(0,0,0,.06);">
+        <div style="height:130px; background:radial-gradient(120% 90% at 50% -10%, #18222f 0%, #0b0d11 55%); position:relative;"><div style="position:absolute; inset:0; background:repeating-linear-gradient(0deg, rgba(255,255,255,.025) 0 2px, transparent 2px 5px);"></div></div>
+        <div style="padding:14px 16px;"><div style="font:700 14px Archivo;">Banen-scherm</div><div style="font:500 12px 'JetBrains Mono'; color:#8a8578;">radial · top-spot</div></div>
+      </div>
+      <div style="border-radius:14px; overflow:hidden; border:1px solid rgba(0,0,0,.06);">
+        <div style="height:130px; background:radial-gradient(120% 100% at 50% 28%, #122a44 0%, #090b0f 62%); position:relative;"><div style="position:absolute; inset:0; background:repeating-linear-gradient(0deg, rgba(255,255,255,.025) 0 2px, transparent 2px 5px);"></div></div>
+        <div style="padding:14px 16px;"><div style="font:700 14px Archivo;">Sponsorslide</div><div style="font:500 12px 'JetBrains Mono'; color:#8a8578;">radial · blue-cast</div></div>
+      </div>
+      <div style="border-radius:14px; overflow:hidden; border:1px solid rgba(0,0,0,.06);">
+        <div style="height:130px; background:radial-gradient(120% 100% at 50% 18%, #20232b 0%, #0a0b0e 60%); position:relative;"><div style="position:absolute; inset:0; background:repeating-linear-gradient(0deg, rgba(255,255,255,.025) 0 2px, transparent 2px 5px);"></div></div>
+        <div style="padding:14px 16px;"><div style="font:700 14px Archivo;">Marketingslide</div><div style="font:500 12px 'JetBrains Mono'; color:#8a8578;">radial · neutral</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== TYPOGRAPHY ===== -->
+  <div style="background:#fff; border:1px solid rgba(0,0,0,.07); border-radius:18px; padding:42px 46px;">
+    <div style="display:flex; align-items:baseline; gap:14px; margin-bottom:6px;">
+      <span style="font:800 24px Archivo;">Typografie</span>
+      <span style="font:700 11px 'JetBrains Mono'; letter-spacing:2px; color:#9b958a;">03 · FOUNDATIONS</span>
+    </div>
+    <div style="font:500 14px Archivo; color:#8a8578; margin-bottom:28px; max-width:640px;">Archivo draagt alles: koppen, UI en het logo. JetBrains&nbsp;Mono is gereserveerd voor labels, tijden en scores — alles wat &ldquo;machine&rdquo; is.</div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:40px;">
+      <div style="display:flex; flex-direction:column;">
+        <div style="display:flex; align-items:baseline; justify-content:space-between; border-bottom:1px solid rgba(0,0,0,.07); padding-bottom:14px; margin-bottom:14px;"><span style="font:900 56px Archivo; letter-spacing:-2px;">Archivo</span><span style="font:600 12px 'JetBrains Mono'; color:#8a8578;">Display</span></div>
+        <div style="display:flex; flex-direction:column; gap:13px;">
+          <div style="display:flex; align-items:baseline; justify-content:space-between;"><span style="font:900 34px Archivo; letter-spacing:-1px;">Display · 900</span><span style="font:500 11px 'JetBrains Mono'; color:#9b958a;">heroes / scherm</span></div>
+          <div style="display:flex; align-items:baseline; justify-content:space-between;"><span style="font:800 26px Archivo; letter-spacing:-.5px;">Heading · 800</span><span style="font:500 11px 'JetBrains Mono'; color:#9b958a;">sectiekoppen</span></div>
+          <div style="display:flex; align-items:baseline; justify-content:space-between;"><span style="font:700 19px Archivo;">Subhead · 700</span><span style="font:500 11px 'JetBrains Mono'; color:#9b958a;">kaarttitels</span></div>
+          <div style="display:flex; align-items:baseline; justify-content:space-between;"><span style="font:500 16px Archivo; color:#56524a;">Body · 500 — leesbaar en rustig.</span><span style="font:500 11px 'JetBrains Mono'; color:#9b958a;">lopende tekst</span></div>
+        </div>
+      </div>
+      <div style="display:flex; flex-direction:column;">
+        <div style="display:flex; align-items:baseline; justify-content:space-between; border-bottom:1px solid rgba(0,0,0,.07); padding-bottom:14px; margin-bottom:14px;"><span style="font:700 38px 'JetBrains Mono'; letter-spacing:.5px;">Mono</span><span style="font:600 12px 'JetBrains Mono'; color:#8a8578;">Labels &amp; data</span></div>
+        <div style="display:flex; flex-direction:column; gap:15px;">
+          <div><div style="font:700 12px 'JetBrains Mono'; letter-spacing:2.5px; color:#16181d;">EYEBROW LABEL</div><div style="font:500 11px Archivo; color:#9b958a;">700 · 12px · +2.5 tracking · uppercase</div></div>
+          <div><div style="font:700 30px 'JetBrains Mono';">14:45</div><div style="font:500 11px Archivo; color:#9b958a;">klok · tijd</div></div>
+          <div><div style="font:700 24px 'JetBrains Mono';">6-3 6-4</div><div style="font:500 11px Archivo; color:#9b958a;">score</div></div>
+          <div><div style="font:700 22px 'JetBrains Mono';">01 / 02 / 03</div><div style="font:500 11px Archivo; color:#9b958a;">stappen / paginanummers</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== MOTION / LEAN ===== -->
+  <div style="background:#0b0d11; border-radius:18px; padding:42px 46px; position:relative; overflow:hidden;">
+    <div style="position:absolute; inset:0; background:repeating-linear-gradient(0deg, rgba(255,255,255,.02) 0 2px, transparent 2px 5px);"></div>
+    <div style="position:relative;">
+      <div style="display:flex; align-items:baseline; gap:14px; margin-bottom:6px;">
+        <span style="font:800 24px Archivo; color:#fff;">Beweging &amp; lean</span>
+        <span style="font:700 11px 'JetBrains Mono'; letter-spacing:2px; color:#6f7787;">04 · FOUNDATIONS</span>
+      </div>
+      <div style="font:500 14px Archivo; color:#8b93a3; margin-bottom:30px; max-width:640px;">Drie signaalgebaren maken het merk levend: de voorwaartse lean, de live-puls en de rally-streep.</div>
+      <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:18px;">
+        <div style="background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); border-radius:14px; padding:26px; display:flex; flex-direction:column; gap:18px;">
+          <div style="height:70px; display:flex; align-items:center;"><span style="font:900 44px Archivo; color:#fff; transform:skewX(-9deg); letter-spacing:-1.5px;">Lean</span></div>
+          <div><div style="font:700 15px Archivo; color:#fff;">Voorwaartse lean</div><div style="font:500 13px Archivo; color:#8b93a3; margin-top:4px;">Logo &amp; bug op <span style="font:600 12px 'JetBrains Mono'; color:#aeb6c4;">skewX(-9deg)</span> — sport in beweging.</div></div>
+        </div>
+        <div style="background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); border-radius:14px; padding:26px; display:flex; flex-direction:column; gap:18px;">
+          <div style="height:70px; display:flex; align-items:center; gap:12px;"><span style="width:18px; height:18px; border-radius:50%; background:#ff2e2e; animation:lp 1.4s ease-in-out infinite; box-shadow:0 0 22px 3px rgba(255,46,46,.5);"></span><span style="font:700 12px 'JetBrains Mono'; letter-spacing:3px; color:#ff8a7a;">LIVE</span></div>
+          <div><div style="font:700 15px Archivo; color:#fff;">Live-puls</div><div style="font:500 13px Archivo; color:#8b93a3; margin-top:4px;">Rode stip pulseert <span style="font:600 12px 'JetBrains Mono'; color:#aeb6c4;">1.4s</span> ease-in-out — alleen bij live.</div></div>
+        </div>
+        <div style="background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); border-radius:14px; padding:26px; display:flex; flex-direction:column; gap:18px;">
+          <div style="height:70px; display:flex; align-items:center;"><div style="width:100%; height:12px; border-radius:6px; background:linear-gradient(90deg,#c8f24a,#3da9fc);"></div></div>
+          <div><div style="font:700 15px Archivo; color:#fff;">Rally-streep</div><div style="font:500 13px Archivo; color:#8b93a3; margin-top:4px;">Lime→blauw, altijd horizontaal onder de lockup. De twee sporten, één lijn.</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== LOGO REF ===== -->
+  <div style="background:#fff; border:1px solid rgba(0,0,0,.07); border-radius:18px; padding:42px 46px;">
+    <div style="display:flex; align-items:baseline; justify-content:space-between; gap:14px; margin-bottom:26px; flex-wrap:wrap;">
+      <div style="display:flex; align-items:baseline; gap:14px;"><span style="font:800 24px Archivo;">Logo</span><span style="font:700 11px 'JetBrains Mono'; letter-spacing:2px; color:#9b958a;">05 · IDENTITEIT</span></div>
+      <a href="Logo Guide.dc.html" style="text-decoration:none; font:700 13px Archivo; color:#ff5a3c;">Volledige merkrichtlijn →</a>
+    </div>
+    <div style="display:grid; grid-template-columns:1.4fr 1fr; gap:18px;">
+      <div style="background:#0b0d11; border-radius:14px; padding:48px; display:flex; align-items:center; justify-content:center;">
+        <div style="transform:skewX(-9deg);">
+          <div style="display:flex; align-items:center; gap:11px;">
+            <span style="font:900 56px Archivo; letter-spacing:-2px; color:#fff;">Toernooi</span>
+            <span style="display:inline-flex; align-items:center; padding:5px 14px 9px; background:#ff2e2e;"><span style="font:900 52px Archivo; letter-spacing:-2px; color:#fff;">TV</span></span>
+          </div>
+          <div style="height:8px; margin-top:11px; background:linear-gradient(90deg,#c8f24a,#3da9fc);"></div>
+        </div>
+      </div>
+      <div style="background:#f4f3ee; border:1px solid rgba(0,0,0,.06); border-radius:14px; padding:36px; display:flex; align-items:center; justify-content:center; gap:26px;">
+        <div style="position:relative; width:96px; height:96px; border-radius:23px; background:#ff2e2e; box-shadow:0 12px 28px rgba(255,46,46,.26); display:flex; flex-direction:column; align-items:center; justify-content:center; padding-bottom:11px; flex:none;">
+          <span style="font:900 12px Archivo; letter-spacing:-.4px; color:#fff; transform:skewX(-9deg) scaleX(1.22);">toernooi</span>
+          <span style="font:900 42px Archivo; letter-spacing:-2px; line-height:.82; color:#fff; transform:skewX(-9deg);">TV</span>
+          <div style="position:absolute; left:17px; right:17px; bottom:13px; height:4px; border-radius:2px; background:linear-gradient(90deg,#c8f24a,#3da9fc);"></div>
+        </div>
+        <div style="position:relative; width:54px; height:54px; border-radius:13px; background:#ff2e2e; display:flex; align-items:center; justify-content:center; flex:none;">
+          <span style="font:900 27px Archivo; letter-spacing:-1px; color:#fff; transform:skewX(-9deg);">TV</span>
+          <div style="position:absolute; left:11px; right:11px; bottom:9px; height:3px; border-radius:2px; background:linear-gradient(90deg,#c8f24a,#3da9fc);"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== BUTTONS ===== -->
+  <div style="background:#fff; border:1px solid rgba(0,0,0,.07); border-radius:18px; padding:42px 46px;">
+    <div style="display:flex; align-items:baseline; gap:14px; margin-bottom:26px;">
+      <span style="font:800 24px Archivo;">Knoppen</span>
+      <span style="font:700 11px 'JetBrains Mono'; letter-spacing:2px; color:#9b958a;">06 · COMPONENTEN</span>
+    </div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:18px;">
+      <div style="background:#faf9f6; border:1px solid rgba(0,0,0,.06); border-radius:14px; padding:30px;">
+        <div style="font:700 11px 'JetBrains Mono'; letter-spacing:2px; color:#9b958a; margin-bottom:18px;">OP LICHT</div>
+        <div style="display:flex; align-items:center; gap:14px; flex-wrap:wrap;">
+          <button style="border:none; cursor:pointer; padding:14px 24px; border-radius:11px; font:800 15px Archivo; color:#fff; background:#ff5a3c;">Plan een demo</button>
+          <button style="border:none; cursor:pointer; padding:14px 24px; border-radius:11px; font:700 15px Archivo; color:#fff; background:#0b0d11;">Open weergave</button>
+          <button style="border:1px solid rgba(0,0,0,.14); cursor:pointer; padding:13px 22px; border-radius:11px; font:700 15px Archivo; color:#56524a; background:#fff;">Verwijderen</button>
+        </div>
+        <div style="font:500 12px Archivo; color:#9b958a; margin-top:18px;">Primair = action&nbsp;#FF5A3C · Donker = ink · Secundair = outline</div>
+      </div>
+      <div style="background:#0b0d11; border-radius:14px; padding:30px;">
+        <div style="font:700 11px 'JetBrains Mono'; letter-spacing:2px; color:#6f7787; margin-bottom:18px;">OP DONKER</div>
+        <div style="display:flex; align-items:center; gap:14px; flex-wrap:wrap;">
+          <button style="border:none; cursor:pointer; padding:14px 24px; border-radius:11px; font:800 15px Archivo; color:#fff; background:#ff5a3c;">Plan een demo</button>
+          <button style="border:none; cursor:pointer; padding:14px 24px; border-radius:11px; font:700 15px Archivo; color:#0b0d11; background:#fff;">Weergave</button>
+          <button style="border:1px solid rgba(255,255,255,.18); cursor:pointer; padding:13px 22px; border-radius:11px; font:700 15px Archivo; color:#aeb6c4; background:transparent;">Annuleren</button>
+        </div>
+        <div style="font:500 12px Archivo; color:#6f7787; margin-top:18px;">Op donker draait secundair om naar wit.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== FORM CONTROLS ===== -->
+  <div style="background:#fff; border:1px solid rgba(0,0,0,.07); border-radius:18px; padding:42px 46px;">
+    <div style="display:flex; align-items:baseline; gap:14px; margin-bottom:26px;">
+      <span style="font:800 24px Archivo;">Formulier &amp; bediening</span>
+      <span style="font:700 11px 'JetBrains Mono'; letter-spacing:2px; color:#9b958a;">07 · COMPONENTEN</span>
+    </div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:30px 40px;">
+
+      <!-- text input -->
+      <div>
+        <div style="font:700 12px Archivo; letter-spacing:1.5px; color:#8a8578; text-transform:uppercase; margin-bottom:8px;">Tekstveld</div>
+        <input type="text" value="{{ clubName }}" onChange="{{ onClubName }}" style="width:100%; padding:13px 15px; border:1px solid rgba(0,0,0,.14); border-radius:10px; font:600 16px Archivo; color:#1b1a17; background:#faf9f6; outline:none;">
+        <div style="font:500 12px Archivo; color:#9b958a; margin-top:8px;">radius 10 · bg #FAF9F6 · focus-rand #FF5A3C</div>
+      </div>
+
+      <!-- toggle -->
+      <div>
+        <div style="font:700 12px Archivo; letter-spacing:1.5px; color:#8a8578; text-transform:uppercase; margin-bottom:8px;">Schakelaar</div>
+        <div style="display:flex; align-items:center; gap:22px;">
+          <div style="display:flex; align-items:center; gap:12px;">
+            <span style="width:12px; height:12px; border-radius:50%; background:#c8f24a;"></span><span style="font:700 16px Archivo;">Tennis-pagina&#8217;s</span>
+          </div>
+          <button onClick="{{ toggle }}" style="position:relative; width:52px; height:30px; border-radius:999px; border:none; cursor:pointer; padding:0; background:{{ togTrack }}; transition:background .2s;"><span style="position:absolute; top:3px; left:3px; width:24px; height:24px; border-radius:50%; background:#fff; box-shadow:0 1px 2px rgba(0,0,0,.3); transform:{{ togKnob }}; transition:transform .2s;"></span></button>
+        </div>
+        <div style="font:500 12px Archivo; color:#9b958a; margin-top:14px;">Aan = ink-track · Uit = #CDCABF · klik om te testen</div>
+      </div>
+
+      <!-- slider -->
+      <div>
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;"><span style="font:700 12px Archivo; letter-spacing:1.5px; color:#8a8578; text-transform:uppercase;">Schuifregelaar</span><span style="font:700 15px 'JetBrains Mono'; color:#16181d;">{{ sec }}s</span></div>
+        <input class="ttv" type="range" min="4" max="20" step="1" value="{{ sec }}" onChange="{{ onSec }}" style="width:100%;">
+        <div style="font:500 12px Archivo; color:#9b958a; margin-top:12px;">Seconden per scherm · ink-thumb met witte rand</div>
+      </div>
+
+      <!-- color -->
+      <div>
+        <div style="font:700 12px Archivo; letter-spacing:1.5px; color:#8a8578; text-transform:uppercase; margin-bottom:8px;">Kleurkiezer</div>
+        <div style="display:flex; align-items:center; gap:14px;">
+          <input type="color" value="{{ tennisColor }}" onChange="{{ onColor }}" style="width:54px; height:46px; border:1px solid rgba(0,0,0,.14); border-radius:10px; background:none; cursor:pointer; padding:2px;">
+          <div style="display:flex; flex-direction:column;"><span style="font:700 15px Archivo;">Sportkleur</span><span style="font:600 13px 'JetBrains Mono'; color:#8a8578; text-transform:uppercase;">{{ tennisColor }}</span></div>
+        </div>
+      </div>
+
+      <!-- upload -->
+      <div style="grid-column:1 / -1;">
+        <div style="font:700 12px Archivo; letter-spacing:1.5px; color:#8a8578; text-transform:uppercase; margin-bottom:8px;">Upload-zone</div>
+        <div style="display:flex; align-items:center; justify-content:center; gap:10px; height:84px; border:1.5px dashed rgba(0,0,0,.22); border-radius:12px; background:#faf9f6; color:#8a8578; font:600 15px Archivo;">+ Klik om logo te uploaden (PNG met transparantie)</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== BADGES ===== -->
+  <div style="background:#fff; border:1px solid rgba(0,0,0,.07); border-radius:18px; padding:42px 46px;">
+    <div style="display:flex; align-items:baseline; gap:14px; margin-bottom:26px;">
+      <span style="font:800 24px Archivo;">Labels &amp; chips</span>
+      <span style="font:700 11px 'JetBrains Mono'; letter-spacing:2px; color:#9b958a;">08 · COMPONENTEN</span>
+    </div>
+    <div style="display:flex; flex-wrap:wrap; gap:14px; align-items:center;">
+      <span style="display:inline-flex; align-items:center; gap:8px; padding:7px 14px; border-radius:999px; background:rgba(255,46,46,.13); border:1px solid rgba(255,46,46,.3);"><span style="width:8px; height:8px; border-radius:50%; background:#ff2e2e; animation:lp 1.4s ease-in-out infinite;"></span><span style="font:700 11px 'JetBrains Mono'; letter-spacing:3px; color:#c4322b;">LIVE</span></span>
+      <span style="display:inline-flex; align-items:center; gap:8px; font:800 12px Archivo; letter-spacing:1px; color:#3a8a1f;"><span style="width:9px;height:9px;border-radius:50%;background:#c8f24a;"></span>OP DE BAAN</span>
+      <span style="display:inline-flex; align-items:center; gap:9px; padding:6px 12px; border-radius:8px; background:#f0eee8;"><span style="width:10px; height:10px; border-radius:50%; background:#c8f24a;"></span><span style="font:700 13px Archivo; color:#16181d;">Tennis</span></span>
+      <span style="display:inline-flex; align-items:center; gap:9px; padding:6px 12px; border-radius:8px; background:#f0eee8;"><span style="width:10px; height:10px; border-radius:50%; background:#3da9fc;"></span><span style="font:700 13px Archivo; color:#16181d;">Padel</span></span>
+      <span style="font:700 11px 'JetBrains Mono'; letter-spacing:2px; color:#8a5a2b; background:#fbeede; padding:5px 10px; border-radius:6px;">TOERNOOI TV</span>
+      <span style="font:700 11px 'JetBrains Mono'; letter-spacing:2px; color:#8a8578; background:#f0eee8; padding:5px 10px; border-radius:6px;">DEMO · API</span>
+      <span style="font:700 11px 'JetBrains Mono'; letter-spacing:2px; color:#56524a; padding:5px 11px; border:1px solid rgba(0,0,0,.14); border-radius:6px;">PAGINA 1/3</span>
+      <span style="display:inline-flex; align-items:center; gap:9px; font:700 13px Archivo; color:#56524a;"><span style="width:9px; height:9px; border-radius:50%; background:#37d67a;"></span>6 banen live</span>
+    </div>
+  </div>
+
+  <!-- ===== ADMIN PATTERNS ===== -->
+  <div style="background:#fff; border:1px solid rgba(0,0,0,.07); border-radius:18px; padding:42px 46px;">
+    <div style="display:flex; align-items:baseline; gap:14px; margin-bottom:26px;">
+      <span style="font:800 24px Archivo;">Beheer-patronen</span>
+      <span style="font:700 11px 'JetBrains Mono'; letter-spacing:2px; color:#9b958a;">09 · COMPONENTEN</span>
+    </div>
+    <!-- header bar -->
+    <div style="border-radius:14px; overflow:hidden; border:1px solid rgba(0,0,0,.06); margin-bottom:20px;">
+      <div style="height:64px; background:#0b0d11; display:flex; align-items:center; justify-content:space-between; padding:0 24px;">
+        <div style="display:flex; align-items:center; gap:14px;">
+          <div style="transform:skewX(-9deg);"><div style="display:flex; align-items:center; gap:5px;"><span style="font:900 20px Archivo; letter-spacing:-.8px; color:#fff;">Toernooi</span><span style="display:inline-flex; align-items:center; padding:0 6px 2px; background:#ff2e2e;"><span style="font:900 18px Archivo; letter-spacing:-.8px; color:#fff;">TV</span></span></div></div>
+          <span style="font:700 10px 'JetBrains Mono'; letter-spacing:3px; color:#7d8696; padding:4px 9px; border:1px solid rgba(255,255,255,.14); border-radius:6px;">BEHEER</span>
+        </div>
+        <div style="display:flex; align-items:center; gap:6px; background:rgba(255,255,255,.06); padding:4px; border-radius:11px;">
+          <button onClick="{{ goW }}" style="border:none; cursor:pointer; padding:8px 18px; border-radius:8px; font:700 14px Archivo; background:{{ navWBg }}; color:{{ navWColor }};">Weergave</button>
+          <button onClick="{{ goI }}" style="border:none; cursor:pointer; padding:8px 18px; border-radius:8px; font:700 14px Archivo; background:{{ navIBg }}; color:{{ navIColor }};">Instellingen</button>
+        </div>
+        <div style="display:flex; align-items:center; gap:9px; font:700 13px Archivo; color:#9aa3b2;"><span style="width:9px; height:9px; border-radius:50%; background:#37d67a;"></span>Online</div>
+      </div>
+    </div>
+    <div style="font:500 12px Archivo; color:#9b958a;">Headerbalk (ink) · gesegmenteerde nav-pill · status-indicator. Klik de pill om de actieve staat te wisselen.</div>
+  </div>
+
+  <!-- ===== BROADCAST COMPONENTS ===== -->
+  <div style="background:#0b0d11; border-radius:18px; padding:42px 46px; position:relative; overflow:hidden;">
+    <div style="position:absolute; inset:0; background:repeating-linear-gradient(0deg, rgba(255,255,255,.02) 0 2px, transparent 2px 5px);"></div>
+    <div style="position:relative;">
+      <div style="display:flex; align-items:baseline; gap:14px; margin-bottom:6px;">
+        <span style="font:800 24px Archivo; color:#fff;">Uitzend-componenten</span>
+        <span style="font:700 11px 'JetBrains Mono'; letter-spacing:2px; color:#6f7787;">10 · SCHERM</span>
+      </div>
+      <div style="font:500 14px Archivo; color:#8b93a3; margin-bottom:30px; max-width:640px;">De bouwstenen van het kantinescherm. Sportaccent als linkerbalk, mono voor data, ruime maten voor leesbaarheid op afstand.</div>
+
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:18px; margin-bottom:18px;">
+        <!-- court live -->
+        <div style="background:#14171d; border:1px solid rgba(255,255,255,.08); border-radius:16px; padding:22px 26px; position:relative; overflow:hidden;">
+          <div style="position:absolute; top:0; left:0; bottom:0; width:6px; background:#c8f24a;"></div>
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;"><span style="font:700 12px 'JetBrains Mono'; letter-spacing:2px; color:#7d8696;">BAAN 3 · TENNIS</span><span style="display:inline-flex; align-items:center; gap:7px; font:800 12px Archivo; letter-spacing:1px; color:#c8f24a;"><span style="width:9px;height:9px;border-radius:50%;background:#c8f24a; animation:lp 1.4s ease-in-out infinite;"></span>OP DE BAAN</span></div>
+          <div style="font:700 24px Archivo; color:#f2f4f8;">R. van der Berg</div>
+          <div style="font:800 12px Archivo; letter-spacing:2px; color:#5b6473; margin:5px 0;">VS</div>
+          <div style="font:700 24px Archivo; color:#f2f4f8;">T. Jansen</div>
+        </div>
+        <!-- court next -->
+        <div style="background:#14171d; border:1px solid rgba(255,255,255,.08); border-radius:16px; padding:22px 26px; position:relative; overflow:hidden;">
+          <div style="position:absolute; top:0; left:0; bottom:0; width:6px; background:#3da9fc;"></div>
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;"><span style="font:700 12px 'JetBrains Mono'; letter-spacing:2px; color:#7d8696;">PADEL 1 · STRAKS</span><span style="font:700 13px 'JetBrains Mono'; color:#3da9fc;">ca. 15:00</span></div>
+          <div style="font:700 22px Archivo; color:#dfe4ec;">de Vries / Smit</div>
+          <div style="font:800 12px Archivo; letter-spacing:2px; color:#5b6473; margin:5px 0;">VS</div>
+          <div style="font:700 22px Archivo; color:#dfe4ec;">Kok / Maas</div>
+        </div>
+      </div>
+
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:18px;">
+        <!-- result row -->
+        <div style="background:#14171d; border:1px solid rgba(255,255,255,.08); border-radius:16px; padding:22px 26px; position:relative; overflow:hidden;">
+          <div style="position:absolute; top:0; left:0; bottom:0; width:6px; background:#c6a15b;"></div>
+          <span style="font:700 12px 'JetBrains Mono'; letter-spacing:2px; color:#7d8696;">UITSLAG · ZUIDPARK OPEN</span>
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-top:13px;"><span style="font:800 19px Archivo; color:#fff;">R. van der Berg</span><span style="font:700 19px 'JetBrains Mono'; color:#c6a15b;">6-3 6-4</span></div>
+          <div style="font:600 17px Archivo; color:#7d8696; margin-top:6px;">T. Jansen</div>
+        </div>
+        <!-- indicators -->
+        <div style="background:#14171d; border:1px solid rgba(255,255,255,.08); border-radius:16px; padding:22px 26px; display:flex; flex-direction:column; gap:18px; justify-content:center;">
+          <div>
+            <div style="font:700 11px 'JetBrains Mono'; letter-spacing:2px; color:#6f7787; margin-bottom:10px;">PAGINA-DOTS</div>
+            <div style="display:flex; gap:7px;"><span style="width:26px; height:6px; border-radius:3px; background:#fff; opacity:1;"></span><span style="width:26px; height:6px; border-radius:3px; background:#fff; opacity:.28;"></span><span style="width:26px; height:6px; border-radius:3px; background:#fff; opacity:.28;"></span></div>
+          </div>
+          <div>
+            <div style="font:700 11px 'JetBrains Mono'; letter-spacing:2px; color:#6f7787; margin-bottom:10px;">KLOK &amp; DATUM</div>
+            <div style="display:flex; align-items:baseline; gap:12px;"><span style="font:700 30px 'JetBrains Mono'; color:#fff;">14:45</span><span style="font:600 15px Archivo; color:#8b93a3;">zaterdag 27 juni</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== PRINCIPLES ===== -->
+  <div style="display:grid; grid-template-columns:1fr 1fr; gap:26px;">
+    <div style="background:#fff; border:1px solid rgba(0,0,0,.07); border-radius:18px; padding:34px 38px;">
+      <div style="font:800 14px Archivo; color:#1f8a4c; margin-bottom:18px;">✓ WEL</div>
+      <div style="display:flex; flex-direction:column; gap:11px; font:500 15px Archivo; color:#3a3833;">
+        <span>Rood reserveren voor live/tv — nergens anders.</span>
+        <span>Sportkleur als accentbalk, niet als vlak.</span>
+        <span>Mono voor alles wat data is: tijd, score, label.</span>
+        <span>Ruime maten op het scherm — leesbaar vanaf de bar.</span>
+      </div>
+    </div>
+    <div style="background:#fff; border:1px solid rgba(0,0,0,.07); border-radius:18px; padding:34px 38px;">
+      <div style="font:800 14px Archivo; color:#c4322b; margin-bottom:18px;">✕ NIET</div>
+      <div style="display:flex; flex-direction:column; gap:11px; font:500 15px Archivo; color:#3a3833;">
+        <span>De lean weglaten of het logo rechtop zetten.</span>
+        <span>Lime/blauw los als tekstkleur gebruiken.</span>
+        <span>Action-oranje (#FF5A3C) als de logo-plaat tonen.</span>
+        <span>Vlak zwart i.p.v. de radiale tv-gradiënt.</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { clubName: 'TC & Padel Zuidpark', tog: true, sec: 8, tennisColor: '#C8F24A', tab: 'instellingen' };
+
+  renderVals() {
+    const s = this.state;
+    const sw = on => ({ track: on ? '#15171c' : '#cdcabf', knob: on ? 'translateX(22px)' : 'translateX(0px)' });
+    const tg = sw(s.tog);
+    const isW = s.tab === 'weergave';
+    return {
+      clubName: s.clubName,
+      onClubName: e => this.setState({ clubName: e.target.value }),
+      tog: s.tog,
+      toggle: () => this.setState({ tog: !s.tog }),
+      togTrack: tg.track, togKnob: tg.knob,
+      sec: s.sec,
+      onSec: e => this.setState({ sec: +e.target.value }),
+      tennisColor: s.tennisColor,
+      onColor: e => this.setState({ tennisColor: e.target.value }),
+      goW: () => this.setState({ tab: 'weergave' }),
+      goI: () => this.setState({ tab: 'instellingen' }),
+      navWBg: isW ? '#ffffff' : 'transparent',
+      navWColor: isW ? '#0b0d11' : '#8b93a3',
+      navIBg: !isW ? '#ffffff' : 'transparent',
+      navIColor: !isW ? '#0b0d11' : '#8b93a3',
+    };
+  }
+}
+</script>
+</body>
+</html>

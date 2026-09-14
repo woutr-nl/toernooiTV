@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:#e7e5df;}
+  @keyframes livepulse{0%,100%{opacity:1;}50%{opacity:.28;}}
+  input[type=range]{accent-color:#15171c;}
+</style>
+</helmet>
+
+<div style="min-height:100vh; background:#e7e5df; font-family:Archivo, sans-serif; color:#1b1a17;">
+
+  <!-- APP HEADER -->
+  <div style="height:72px; background:#0b0d11; display:flex; align-items:center; justify-content:space-between; padding:0 32px; position:sticky; top:0; z-index:20;">
+    <div style="display:flex; align-items:center; gap:16px;">
+      <div style="transform:skewX(-9deg);">
+        <div style="display:flex; align-items:center; gap:5px;">
+          <span style="font:900 23px Archivo; letter-spacing:-1px; color:#fff;">Toernooi</span>
+          <span style="display:inline-flex; align-items:center; padding:1px 7px 3px; background:#ff2e2e;"><span style="font:900 21px Archivo; letter-spacing:-1px; color:#fff;">TV</span></span>
+        </div>
+        <div style="height:3px; margin-top:3px; background:linear-gradient(90deg,#c8f24a,#3da9fc);"></div>
+      </div>
+      <span style="font:700 11px 'JetBrains Mono'; letter-spacing:3px; color:#7d8696; padding:4px 9px; border:1px solid rgba(255,255,255,.14); border-radius:6px;">BEHEER</span>
+    </div>
+    <div style="display:flex; align-items:center; gap:6px; background:rgba(255,255,255,.06); padding:5px; border-radius:11px;">
+      <button onClick="{{ goWeergave }}" style="border:none; cursor:pointer; padding:9px 20px; border-radius:8px; font:700 15px Archivo; background:{{ navWBg }}; color:{{ navWColor }}; transition:all .15s;">Weergave</button>
+      <button onClick="{{ goInstellingen }}" style="border:none; cursor:pointer; padding:9px 20px; border-radius:8px; font:700 15px Archivo; background:{{ navIBg }}; color:{{ navIColor }}; transition:all .15s;">Instellingen</button>
+    </div>
+    <div style="display:flex; align-items:center; gap:9px; font:700 14px Archivo; color:#9aa3b2;">
+      <span style="width:9px; height:9px; border-radius:50%; background:#37d67a;"></span>{{ liveStatus }}
+    </div>
+  </div>
+
+  <!-- WEERGAVE -->
+  <sc-if value="{{ isWeergave }}" hint-placeholder-val="{{ true }}">
+    <div style="padding:44px 32px 60px; display:flex; flex-direction:column; align-items:center; gap:24px;">
+      <div ref="{{ setBigBox }}" style="width:100%; max-width:1180px; aspect-ratio:16 / 9; border-radius:12px; overflow:hidden; box-shadow:0 18px 50px rgba(0,0,0,.28); background:#000; position:relative;">
+        <div style="transform:scale({{ bigScale }}); transform-origin:top left; width:1920px; height:1080px;">
+          <dc-import name="Display" hint-size="1920px,1080px"
+            club-name="{{ clubName }}" club-initials="{{ clubInitials }}" club-logo="{{ clubLogo }}" club-no-logo="{{ clubNoLogo }}"
+            clock-label="{{ clockLabel }}" date-label="{{ dateLabel }}"
+            frames="{{ frames }}" dots="{{ dots }}"
+            sponsor-name="{{ sponsorName }}" sponsor-tagline="{{ sponsorTagline }}" sponsor-logo="{{ sponsorLogo }}" sponsor-no-logo="{{ sponsorNoLogo }}"
+            style="width:1920px; height:1080px; display:block;">
+          </dc-import>
+        </div>
+      </div>
+      <div style="display:flex; align-items:center; gap:20px; background:#fff; border:1px solid rgba(0,0,0,.08); border-radius:12px; padding:14px 24px;">
+        <span style="font:800 13px Archivo; letter-spacing:2px; color:#8a8578; text-transform:uppercase;">Nu in beeld</span>
+        <span style="font:800 18px Archivo; color:#1b1a17;">{{ currentLabel }}</span>
+        <span style="width:1px; height:22px; background:rgba(0,0,0,.1);"></span>
+        <div style="display:flex; gap:7px;">
+          <sc-for list="{{ dots }}" as="d" hint-placeholder-count="3">
+            <span style="width:26px; height:6px; border-radius:3px; background:#1b1a17; opacity:{{ d.op }}; transition:opacity .4s;"></span>
+          </sc-for>
+        </div>
+        <span style="font:500 14px Archivo; color:#8a8578;">Wisselt automatisch</span>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- INSTELLINGEN -->
+  <sc-if value="{{ isInstellingen }}" hint-placeholder-val="{{ true }}">
+    <div style="padding:36px 32px 60px;">
+      <div style="max-width:1300px; margin:0 auto; display:grid; grid-template-columns:minmax(0,1fr) minmax(340px,440px); gap:32px; align-items:start;">
+
+        <!-- FORM -->
+        <div style="display:flex; flex-direction:column; gap:22px;">
+
+          <!-- CLUB -->
+          <div style="background:#fff; border:1px solid rgba(0,0,0,.08); border-radius:16px; padding:28px 30px;">
+            <div style="font:800 20px Archivo; color:#1b1a17; margin-bottom:20px;">Club</div>
+            <div style="margin-bottom:20px;">
+              <div style="font:700 12px Archivo; letter-spacing:1.5px; color:#8a8578; text-transform:uppercase; margin-bottom:8px;">Naam</div>
+              <input type="text" value="{{ clubName }}" onChange="{{ onClubName }}" style="width:100%; padding:13px 15px; border:1px solid rgba(0,0,0,.14); border-radius:10px; font:600 16px Archivo; color:#1b1a17; background:#faf9f6; outline:none;">
+            </div>
+            <div>
+              <div style="font:700 12px Archivo; letter-spacing:1.5px; color:#8a8578; text-transform:uppercase; margin-bottom:8px;">Clublogo</div>
+              <sc-if value="{{ clubHasLogo }}">
+                <div style="display:flex; align-items:center; gap:14px;">
+                  <div style="height:72px; padding:10px 18px; border:1px solid rgba(0,0,0,.12); border-radius:12px; background:#0b0d11; display:flex; align-items:center; justify-content:center;">
+                    {{ clubLogoPreview }}
+                  </div>
+                  <button onClick="{{ clearClubLogo }}" style="border:1px solid rgba(0,0,0,.14); background:#fff; cursor:pointer; padding:10px 16px; border-radius:9px; font:700 14px Archivo; color:#56524a;">Verwijderen</button>
+                </div>
+              </sc-if>
+              <sc-if value="{{ clubNoLogo }}" hint-placeholder-val="{{ true }}">
+                <label style="display:flex; align-items:center; justify-content:center; gap:10px; height:84px; border:1.5px dashed rgba(0,0,0,.22); border-radius:12px; background:#faf9f6; cursor:pointer; color:#8a8578; font:600 15px Archivo;">
+                  <input type="file" accept="image/*" onChange="{{ onClubLogo }}" style="display:none;">
+                  + Klik om logo te uploaden (PNG met transparantie)
+                </label>
+              </sc-if>
+            </div>
+          </div>
+
+          <!-- SPONSOR -->
+          <div style="background:#fff; border:1px solid rgba(0,0,0,.08); border-radius:16px; padding:28px 30px;">
+            <div style="font:800 20px Archivo; color:#1b1a17; margin-bottom:6px;">Sponsor</div>
+            <div style="font:500 14px Archivo; color:#8a8578; margin-bottom:20px;">Wordt als volledige slide in de rotatie getoond.</div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:20px;">
+              <div>
+                <div style="font:700 12px Archivo; letter-spacing:1.5px; color:#8a8578; text-transform:uppercase; margin-bottom:8px;">Naam</div>
+                <input type="text" value="{{ sponsorName }}" onChange="{{ onSponsorName }}" style="width:100%; padding:13px 15px; border:1px solid rgba(0,0,0,.14); border-radius:10px; font:600 16px Archivo; color:#1b1a17; background:#faf9f6; outline:none;">
+              </div>
+              <div>
+                <div style="font:700 12px Archivo; letter-spacing:1.5px; color:#8a8578; text-transform:uppercase; margin-bottom:8px;">Tagline</div>
+                <input type="text" value="{{ sponsorTagline }}" onChange="{{ onSponsorTagline }}" style="width:100%; padding:13px 15px; border:1px solid rgba(0,0,0,.14); border-radius:10px; font:600 16px Archivo; color:#1b1a17; background:#faf9f6; outline:none;">
+              </div>
+            </div>
+            <div>
+              <div style="font:700 12px Archivo; letter-spacing:1.5px; color:#8a8578; text-transform:uppercase; margin-bottom:8px;">Sponsorlogo</div>
+              <sc-if value="{{ sponsorHasLogo }}">
+                <div style="display:flex; align-items:center; gap:14px;">
+                  <div style="height:88px; padding:12px 22px; border:1px solid rgba(0,0,0,.12); border-radius:12px; background:#0b0d11; display:flex; align-items:center; justify-content:center;">
+                    {{ sponsorLogoPreview }}
+                  </div>
+                  <button onClick="{{ clearSponsorLogo }}" style="border:1px solid rgba(0,0,0,.14); background:#fff; cursor:pointer; padding:10px 16px; border-radius:9px; font:700 14px Archivo; color:#56524a;">Verwijderen</button>
+                </div>
+              </sc-if>
+              <sc-if value="{{ sponsorNoLogo }}" hint-placeholder-val="{{ true }}">
+                <label style="display:flex; align-items:center; justify-content:center; gap:10px; height:96px; border:1.5px dashed rgba(0,0,0,.22); border-radius:12px; background:#faf9f6; cursor:pointer; color:#8a8578; font:600 15px Archivo;">
+                  <input type="file" accept="image/*" onChange="{{ onSponsorLogo }}" style="display:none;">
+                  + Klik om sponsorlogo te uploaden
+                </label>
+              </sc-if>
+            </div>
+          </div>
+
+          <!-- PROMO / MARKETING -->
+          <div style="background:#fff; border:1px solid rgba(0,0,0,.08); border-radius:16px; padding:28px 30px;">
+            <div style="display:flex; align-items:center; gap:10px; margin-bottom:6px;">
+              <span style="font:800 20px Archivo; color:#1b1a17;">Marketingslide</span>
+              <span style="font:700 10px 'JetBrains Mono'; letter-spacing:1.5px; color:#8a5a2b; background:#fbeede; padding:4px 8px; border-radius:6px;">TOERNOOI TV</span>
+            </div>
+            <div style="font:500 14px Archivo; color:#8a8578; margin-bottom:20px;">Toont Toernooi TV in de rotatie — elke club die het scherm ziet, kan meer info vinden op de website.</div>
+            <div style="margin-bottom:16px;">
+              <div style="font:700 12px Archivo; letter-spacing:1.5px; color:#8a8578; text-transform:uppercase; margin-bottom:8px;">Label (klein, boven)</div>
+              <input type="text" value="{{ promoEyebrow }}" onChange="{{ onPromoEyebrow }}" style="width:100%; padding:13px 15px; border:1px solid rgba(0,0,0,.14); border-radius:10px; font:600 16px Archivo; color:#1b1a17; background:#faf9f6; outline:none;">
+            </div>
+            <div style="margin-bottom:16px;">
+              <div style="font:700 12px Archivo; letter-spacing:1.5px; color:#8a8578; text-transform:uppercase; margin-bottom:8px;">Boodschap</div>
+              <input type="text" value="{{ promoMessage }}" onChange="{{ onPromoMessage }}" style="width:100%; padding:13px 15px; border:1px solid rgba(0,0,0,.14); border-radius:10px; font:600 16px Archivo; color:#1b1a17; background:#faf9f6; outline:none;">
+            </div>
+            <div style="display:grid; grid-template-columns:1fr auto; gap:16px; align-items:end;">
+              <div>
+                <div style="font:700 12px Archivo; letter-spacing:1.5px; color:#8a8578; text-transform:uppercase; margin-bottom:8px;">Call-to-action</div>
+                <input type="text" value="{{ promoCta }}" onChange="{{ onPromoCta }}" style="width:100%; padding:13px 15px; border:1px solid rgba(0,0,0,.14); border-radius:10px; font:600 16px Archivo; color:#1b1a17; background:#faf9f6; outline:none;">
+              </div>
+              <div style="display:flex; align-items:center; gap:12px;">
+                <input type="color" value="{{ promoColor }}" onChange="{{ onPromoColor }}" style="width:54px; height:48px; border:1px solid rgba(0,0,0,.14); border-radius:10px; background:none; cursor:pointer; padding:2px;">
+                <div style="display:flex; flex-direction:column;"><span style="font:700 14px Archivo; color:#1b1a17;">Kleur</span><span style="font:600 12px 'JetBrains Mono'; color:#8a8578; text-transform:uppercase;">{{ promoColor }}</span></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- BANEN (demo van API-data) -->
+          <div style="background:#fff; border:1px solid rgba(0,0,0,.08); border-radius:16px; padding:28px 30px;">
+            <div style="display:flex; align-items:center; gap:10px; margin-bottom:6px;">
+              <span style="font:800 20px Archivo; color:#1b1a17;">Banen</span>
+              <span style="font:700 10px 'JetBrains Mono'; letter-spacing:1.5px; color:#8a8578; background:#f0eee8; padding:4px 8px; border-radius:6px;">DEMO · STRAKS VIA TOERNOOI-API</span>
+            </div>
+            <div style="font:500 14px Archivo; color:#8a8578; margin-bottom:20px;">Het scherm splitst automatisch in pagina's van max. 4 banen. Schuif omhoog om te zien wat er bij 9+ banen gebeurt.</div>
+            <div style="padding-bottom:18px; border-bottom:1px solid rgba(0,0,0,.06);">
+              <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;"><span style="display:flex; align-items:center; gap:10px;"><span style="width:12px; height:12px; border-radius:50%; background:{{ tennisColor }};"></span><span style="font:700 15px Archivo; color:#1b1a17;">Tennisbanen</span></span><span style="font:700 16px 'JetBrains Mono'; color:#1b1a17;">{{ tennisBanen }} · {{ tennisPagesLabel }}</span></div>
+              <input type="range" min="1" max="12" step="1" value="{{ tennisBanen }}" onChange="{{ onTennisBanen }}" style="width:100%;">
+            </div>
+            <div style="padding-top:18px;">
+              <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;"><span style="display:flex; align-items:center; gap:10px;"><span style="width:12px; height:12px; border-radius:50%; background:{{ padelColor }};"></span><span style="font:700 15px Archivo; color:#1b1a17;">Padelbanen</span></span><span style="font:700 16px 'JetBrains Mono'; color:#1b1a17;">{{ padelBanen }} · {{ padelPagesLabel }}</span></div>
+              <input type="range" min="1" max="12" step="1" value="{{ padelBanen }}" onChange="{{ onPadelBanen }}" style="width:100%;">
+            </div>
+            <div style="margin-top:18px; padding-top:18px; border-top:1px solid rgba(0,0,0,.06);">
+              <div style="font:700 12px Archivo; letter-spacing:1.5px; color:#8a8578; text-transform:uppercase; margin-bottom:14px;">Gespeelde wedstrijden · uitslagen</div>
+              <div style="padding-bottom:18px; border-bottom:1px solid rgba(0,0,0,.06);">
+                <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;"><span style="display:flex; align-items:center; gap:10px;"><span style="width:12px; height:12px; border-radius:50%; background:{{ tennisColor }};"></span><span style="font:700 15px Archivo; color:#1b1a17;">Tennis-uitslagen</span></span><span style="font:700 16px 'JetBrains Mono'; color:#1b1a17;">{{ tennisResults }}</span></div>
+                <input type="range" min="0" max="45" step="1" value="{{ tennisResults }}" onChange="{{ onTennisResults }}" style="width:100%;">
+              </div>
+              <div style="padding-top:18px;">
+                <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;"><span style="display:flex; align-items:center; gap:10px;"><span style="width:12px; height:12px; border-radius:50%; background:{{ padelColor }};"></span><span style="font:700 15px Archivo; color:#1b1a17;">Padel-uitslagen</span></span><span style="font:700 16px 'JetBrains Mono'; color:#1b1a17;">{{ padelResults }}</span></div>
+                <input type="range" min="0" max="45" step="1" value="{{ padelResults }}" onChange="{{ onPadelResults }}" style="width:100%;">
+              </div>
+            </div>
+          </div>
+
+          <!-- ROTATIE -->
+          <div style="background:#fff; border:1px solid rgba(0,0,0,.08); border-radius:16px; padding:28px 30px;">
+            <div style="font:800 20px Archivo; color:#1b1a17; margin-bottom:14px;">Schermrotatie</div>
+            <div style="display:flex; align-items:center; justify-content:space-between; padding:14px 0; border-bottom:1px solid rgba(0,0,0,.06);">
+              <div style="display:flex; align-items:center; gap:12px;"><span style="width:12px; height:12px; border-radius:50%; background:{{ tennisColor }};"></span><span style="font:700 16px Archivo; color:#1b1a17;">Tennis-pagina's</span></div>
+              <button onClick="{{ toggleTennis }}" style="position:relative; width:52px; height:30px; border-radius:999px; border:none; cursor:pointer; padding:0; background:{{ tnTrack }}; transition:background .2s;"><span style="position:absolute; top:3px; left:3px; width:24px; height:24px; border-radius:50%; background:#fff; box-shadow:0 1px 2px rgba(0,0,0,.3); transform:{{ tnKnob }}; transition:transform .2s;"></span></button>
+            </div>
+            <div style="display:flex; align-items:center; justify-content:space-between; padding:14px 0; border-bottom:1px solid rgba(0,0,0,.06);">
+              <div style="display:flex; align-items:center; gap:12px;"><span style="width:12px; height:12px; border-radius:50%; background:{{ padelColor }};"></span><span style="font:700 16px Archivo; color:#1b1a17;">Padel-pagina's</span></div>
+              <button onClick="{{ togglePadel }}" style="position:relative; width:52px; height:30px; border-radius:999px; border:none; cursor:pointer; padding:0; background:{{ pdTrack }}; transition:background .2s;"><span style="position:absolute; top:3px; left:3px; width:24px; height:24px; border-radius:50%; background:#fff; box-shadow:0 1px 2px rgba(0,0,0,.3); transform:{{ pdKnob }}; transition:transform .2s;"></span></button>
+            </div>
+            <div style="display:flex; align-items:center; justify-content:space-between; padding:14px 0; border-bottom:1px solid rgba(0,0,0,.06);">
+              <div style="display:flex; align-items:center; gap:12px;"><span style="width:12px; height:12px; border-radius:50%; background:#7da7d4;"></span><span style="font:700 16px Archivo; color:#1b1a17;">Sponsorslide</span></div>
+              <button onClick="{{ toggleSponsor }}" style="position:relative; width:52px; height:30px; border-radius:999px; border:none; cursor:pointer; padding:0; background:{{ spTrack }}; transition:background .2s;"><span style="position:absolute; top:3px; left:3px; width:24px; height:24px; border-radius:50%; background:#fff; box-shadow:0 1px 2px rgba(0,0,0,.3); transform:{{ spKnob }}; transition:transform .2s;"></span></button>
+            </div>
+            <div style="display:flex; align-items:center; justify-content:space-between; padding:14px 0; border-bottom:1px solid rgba(0,0,0,.06);">
+              <div style="display:flex; align-items:center; gap:12px;"><span style="width:12px; height:12px; border-radius:50%; background:#c6a15b;"></span><span style="font:700 16px Archivo; color:#1b1a17;">Uitslagen-pagina's</span></div>
+              <button onClick="{{ toggleResults }}" style="position:relative; width:52px; height:30px; border-radius:999px; border:none; cursor:pointer; padding:0; background:{{ rsTrack }}; transition:background .2s;"><span style="position:absolute; top:3px; left:3px; width:24px; height:24px; border-radius:50%; background:#fff; box-shadow:0 1px 2px rgba(0,0,0,.3); transform:{{ rsKnob }}; transition:transform .2s;"></span></button>
+            </div>
+            <div style="display:flex; align-items:center; justify-content:space-between; padding:14px 0; border-bottom:1px solid rgba(0,0,0,.06);">
+              <div style="display:flex; align-items:center; gap:12px;"><span style="width:12px; height:12px; border-radius:50%; background:{{ promoColor }};"></span><span style="font:700 16px Archivo; color:#1b1a17;">Marketingslide</span></div>
+              <button onClick="{{ togglePromo }}" style="position:relative; width:52px; height:30px; border-radius:999px; border:none; cursor:pointer; padding:0; background:{{ psTrack }}; transition:background .2s;"><span style="position:absolute; top:3px; left:3px; width:24px; height:24px; border-radius:50%; background:#fff; box-shadow:0 1px 2px rgba(0,0,0,.3); transform:{{ psKnob }}; transition:transform .2s;"></span></button>
+            </div>
+            <div style="padding-top:20px;">
+              <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;"><span style="font:700 14px Archivo; color:#56524a;">Seconden per baan-pagina</span><span style="font:700 16px 'JetBrains Mono'; color:#1b1a17;">{{ secCourt }}s</span></div>
+              <input type="range" min="4" max="20" step="1" value="{{ secCourt }}" onChange="{{ onSecCourt }}" style="width:100%;">
+            </div>
+            <div style="padding-top:18px;">
+              <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;"><span style="font:700 14px Archivo; color:#56524a;">Seconden per sponsorslide</span><span style="font:700 16px 'JetBrains Mono'; color:#1b1a17;">{{ secSponsor }}s</span></div>
+              <input type="range" min="3" max="15" step="1" value="{{ secSponsor }}" onChange="{{ onSecSponsor }}" style="width:100%;">
+            </div>
+            <div style="padding-top:18px;">
+              <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;"><span style="font:700 14px Archivo; color:#56524a;">Seconden per uitslagen-pagina</span><span style="font:700 16px 'JetBrains Mono'; color:#1b1a17;">{{ secResults }}s</span></div>
+              <input type="range" min="4" max="20" step="1" value="{{ secResults }}" onChange="{{ onSecResults }}" style="width:100%;">
+            </div>
+            <div style="padding-top:18px;">
+              <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;"><span style="font:700 14px Archivo; color:#56524a;">Seconden per marketingslide</span><span style="font:700 16px 'JetBrains Mono'; color:#1b1a17;">{{ secPromo }}s</span></div>
+              <input type="range" min="4" max="20" step="1" value="{{ secPromo }}" onChange="{{ onSecPromo }}" style="width:100%;">
+            </div>
+          </div>
+
+          <!-- KLEUREN -->
+          <div style="background:#fff; border:1px solid rgba(0,0,0,.08); border-radius:16px; padding:28px 30px;">
+            <div style="font:800 20px Archivo; color:#1b1a17; margin-bottom:18px;">Sportkleuren</div>
+            <div style="display:flex; gap:32px;">
+              <div style="display:flex; align-items:center; gap:14px;">
+                <input type="color" value="{{ tennisColor }}" onChange="{{ onTennisColor }}" style="width:54px; height:42px; border:1px solid rgba(0,0,0,.14); border-radius:10px; background:none; cursor:pointer; padding:2px;">
+                <div style="display:flex; flex-direction:column;"><span style="font:700 15px Archivo; color:#1b1a17;">Tennis</span><span style="font:600 13px 'JetBrains Mono'; color:#8a8578; text-transform:uppercase;">{{ tennisColor }}</span></div>
+              </div>
+              <div style="display:flex; align-items:center; gap:14px;">
+                <input type="color" value="{{ padelColor }}" onChange="{{ onPadelColor }}" style="width:54px; height:42px; border:1px solid rgba(0,0,0,.14); border-radius:10px; background:none; cursor:pointer; padding:2px;">
+                <div style="display:flex; flex-direction:column;"><span style="font:700 15px Archivo; color:#1b1a17;">Padel</span><span style="font:600 13px 'JetBrains Mono'; color:#8a8578; text-transform:uppercase;">{{ padelColor }}</span></div>
+              </div>
+            </div>
+            <button onClick="{{ resetSettings }}" style="margin-top:24px; border:1px solid rgba(0,0,0,.14); background:#faf9f6; cursor:pointer; padding:11px 18px; border-radius:10px; font:700 14px Archivo; color:#56524a;">Herstel standaardinstellingen</button>
+          </div>
+
+        </div>
+
+        <!-- LIVE PREVIEW -->
+        <div style="position:sticky; top:96px; display:flex; flex-direction:column; gap:14px;">
+          <div style="font:700 12px Archivo; letter-spacing:2px; color:#8a8578; text-transform:uppercase;">Live voorbeeld</div>
+          <div ref="{{ setSmallBox }}" style="width:100%; aspect-ratio:16 / 9; border-radius:10px; overflow:hidden; box-shadow:0 12px 34px rgba(0,0,0,.22); background:#000; position:relative;">
+            <div style="transform:scale({{ smallScale }}); transform-origin:top left; width:1920px; height:1080px;">
+              <dc-import name="Display" hint-size="1920px,1080px"
+                club-name="{{ clubName }}" club-initials="{{ clubInitials }}" club-logo="{{ clubLogo }}" club-no-logo="{{ clubNoLogo }}"
+                clock-label="{{ clockLabel }}" date-label="{{ dateLabel }}"
+                frames="{{ frames }}" dots="{{ dots }}"
+                sponsor-name="{{ sponsorName }}" sponsor-tagline="{{ sponsorTagline }}" sponsor-logo="{{ sponsorLogo }}" sponsor-no-logo="{{ sponsorNoLogo }}"
+                style="width:1920px; height:1080px; display:block;">
+              </dc-import>
+            </div>
+          </div>
+          <div style="display:flex; align-items:center; gap:14px; padding:0 2px;">
+            <span style="font:700 15px Archivo; color:#1b1a17;">{{ currentLabel }}</span>
+            <div style="display:flex; gap:6px;">
+              <sc-for list="{{ dots }}" as="d" hint-placeholder-count="3">
+                <span style="width:22px; height:5px; border-radius:3px; background:#1b1a17; opacity:{{ d.op }}; transition:opacity .4s;"></span>
+              </sc-for>
+            </div>
+          </div>
+          <button onClick="{{ goWeergave }}" style="margin-top:4px; border:none; background:#0b0d11; cursor:pointer; padding:14px; border-radius:11px; font:700 15px Archivo; color:#fff;">Open weergave-modus →</button>
+        </div>
+
+      </div>
+    </div>
+  </sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  DEFAULTS = {
+    clubName: 'TC & Padel Zuidpark',
+    clubLogo: '',
+    sponsorName: 'Jouw Sponsor',
+    sponsorTagline: 'Officiële partner van het Zuidpark Open 2026',
+    sponsorLogo: '',
+    showTennis: true,
+    showPadel: true,
+    showSponsor: true,
+    showResults: true,
+    showPromo: true,
+    secCourt: 8,
+    secSponsor: 6,
+    secResults: 9,
+    secPromo: 7,
+    promoEyebrow: 'OOK OP JULLIE CLUB?',
+    promoMessage: 'Live banen, uitslagen en je sponsors op één scherm in de kantine.',
+    promoCta: 'toernooitv.nl',
+    promoColor: '#ff5a3c',
+    tennisResults: 14,
+    padelResults: 10,
+    tennisColor: '#c8f24a',
+    padelColor: '#3da9fc',
+    tennisBanen: 6,
+    padelBanen: 4,
+  };
+
+  LSKEY = 'toernooitv_settings_v2';
+
+  // Demo data pools — in productie komt dit uit de toernooi-API.
+  TENNIS_POOL = [
+    ['R. van der Berg', 'T. Jansen', 'Zuidpark Open'],
+    ['L. de Wit', 'K. Mulder', 'Zuidpark Open'],
+    ['N. Bakker', 'P. Vermeer', 'Zuidpark Open'],
+    ['D. Visser', 'F. Hofman', 'Jeugd Cup'],
+    ['S. Koster', 'M. de Jong', 'Zuidpark Open'],
+    ['J. Willemsen', 'R. Prins', 'Veteranen 35+'],
+    ['A. Smeets', 'C. van Dijk', 'Jeugd Cup'],
+    ['E. Bos', 'H. Linde', 'Zuidpark Open'],
+  ];
+  PADEL_POOL = [
+    ['de Vries / Smit', 'el Amrani / Janssen', 'Padel Masters'],
+    ['Kok / Maas', 'Peeters / Dijkstra', 'Padel Masters'],
+    ['Bos / Vos', 'Hendriks / Willems', 'Padel Masters'],
+    ['Brouwer / Timmermans', 'Scholten / Postma', 'Jeugd Cup'],
+    ['Mol / Aarts', 'Daatselaar / Knol', 'Padel Masters'],
+    ['Faber / Hoekstra', 'Veen / Driessen', 'Mix Toernooi'],
+    ['Lammers / Kuiper', 'Bruin / Sanders', 'Padel Masters'],
+    ['Graaf / Vink', 'Schipper / Reijnders', 'Mix Toernooi'],
+  ];
+
+  state = { settings: { ...this.DEFAULTS }, tab: 'weergave', t: 0, bigScale: 0.45, smallScale: 0.22 };
+
+  componentDidMount() {
+    let saved = null;
+    try { saved = JSON.parse(localStorage.getItem(this.LSKEY) || 'null'); } catch (e) {}
+    if (saved && typeof saved === 'object') this.setState({ settings: { ...this.DEFAULTS, ...saved } });
+    this._iv = setInterval(() => this.setState(s => ({ t: s.t + 1 })), 1000);
+    this._onResize = () => this._measure();
+    window.addEventListener('resize', this._onResize);
+    this._measure();
+  }
+  componentWillUnmount() { clearInterval(this._iv); window.removeEventListener('resize', this._onResize); }
+
+  setBigBox = el => { this._bigBox = el; if (el) this._measure(); };
+  setSmallBox = el => { this._smallBox = el; if (el) this._measure(); };
+  _measure = () => {
+    const b = this._bigBox, s = this._smallBox;
+    this.setState(() => {
+      const ns = {};
+      if (b && b.clientWidth) ns.bigScale = b.clientWidth / 1920;
+      if (s && s.clientWidth) ns.smallScale = s.clientWidth / 1920;
+      return Object.keys(ns).length ? ns : null;
+    });
+  };
+
+  update(patch) {
+    this.setState(s => {
+      const settings = { ...s.settings, ...patch };
+      try { localStorage.setItem(this.LSKEY, JSON.stringify(settings)); } catch (e) {}
+      return { settings };
+    });
+  }
+
+  readFile(e, key) {
+    const f = e.target.files && e.target.files[0];
+    if (!f) return;
+    const r = new FileReader();
+    r.onload = () => this.update({ [key]: r.result });
+    r.readAsDataURL(f);
+  }
+
+  // how many pages a court count splits into (max 4 tiles per page)
+  pagesFor(n) { return n > 0 ? Math.ceil(n / 4) : 0; }
+
+  renderVals() {
+    const s = this.state.settings;
+    const t = this.state.t;
+
+    const now = new Date();
+    const pad = n => String(n).padStart(2, '0');
+    const clockLabel = pad(now.getHours()) + ':' + pad(now.getMinutes());
+    const days = ['zondag','maandag','dinsdag','woensdag','donderdag','vrijdag','zaterdag'];
+    const months = ['januari','februari','maart','april','mei','juni','juli','augustus','september','oktober','november','december'];
+    const dateLabel = days[now.getDay()] + ' ' + now.getDate() + ' ' + months[now.getMonth()];
+
+    const fmtTime = idx => { const tot = 14 * 60 + 45 + idx * 15; return pad(Math.floor(tot / 60) % 24) + ':' + pad(tot % 60); };
+
+    // Build a court list (this is the shape the API will return).
+    const genCourts = (pool, base, label, accent, n) => {
+      const playing = Math.max(1, Math.round(n * 0.6));
+      const out = []; let ni = 0;
+      for (let i = 1; i <= n; i++) {
+        const m = pool[(i - 1) % pool.length];
+        const isPlay = i <= playing;
+        const timeLabel = isPlay ? '' : ('ca. ' + fmtTime(ni));
+        if (!isPlay) ni++;
+        out.push({ key: base + '-' + i, base, num: i, sportLabel: label, accent, tournament: m[2], t1: m[0], t2: m[1], isPlaying: isPlay, isNext: !isPlay, timeLabel, gridSpan: 'auto' });
+      }
+      return out;
+    };
+
+    // even split into pages of max 4
+    const paginate = courts => {
+      const n = courts.length; if (!n) return [];
+      const pages = Math.ceil(n / 4), per = Math.floor(n / pages), extra = n % pages;
+      const chunks = []; let idx = 0;
+      for (let p = 0; p < pages; p++) {
+        const size = per + (p < extra ? 1 : 0);
+        const chunk = courts.slice(idx, idx + size); idx += size;
+        if (chunk.length > 1 && chunk.length % 2 === 1) chunk[chunk.length - 1] = { ...chunk[chunk.length - 1], gridSpan: '1 / -1' };
+        chunks.push(chunk);
+      }
+      return chunks;
+    };
+    const sub = list => [...new Set(list.map(c => c.tournament))].slice(0, 3).join(' · ');
+
+    // Completed matches (the API will return these with final scores).
+    const SC_T = ['6-3 6-4','7-5 6-4','6-2 3-6 6-4','6-4 7-6','6-1 6-2','7-6 7-5','3-6 6-4 6-3','6-0 6-2'];
+    const SC_P = ['6-3 6-4','7-5 6-2','6-4 4-6 6-3','6-2 6-4','7-6 6-4','6-1 6-3','4-6 6-3 6-2','6-3 6-1'];
+    const genResults = (pool, label, accent, scores, n) => {
+      const out = [];
+      for (let i = 1; i <= n; i++) {
+        const m = pool[(i - 1) % pool.length];
+        const wFirst = i % 2 === 1;
+        out.push({ key: label + '-res-' + i, accent, tournament: m[2], winner: wFirst ? m[0] : m[1], loser: wFirst ? m[1] : m[0], score: scores[(i - 1) % scores.length] });
+      }
+      return out;
+    };
+    const RES_PER = 15; // 3 cols x 5 rows
+    const paginateN = (arr, per) => { const out = []; for (let i = 0; i < arr.length; i += per) out.push(arr.slice(i, i + per)); return out; };
+
+    const tCourts = s.showTennis ? genCourts(this.TENNIS_POOL, 'BAAN', 'TENNIS', s.tennisColor, s.tennisBanen) : [];
+    const pCourts = s.showPadel ? genCourts(this.PADEL_POOL, 'PADEL', 'PADEL', s.padelColor, s.padelBanen) : [];
+    const tResults = (s.showTennis && s.showResults) ? genResults(this.TENNIS_POOL, 'TENNIS', s.tennisColor, SC_T, s.tennisResults) : [];
+    const pResults = (s.showPadel && s.showResults) ? genResults(this.PADEL_POOL, 'PADEL', s.padelColor, SC_P, s.padelResults) : [];
+
+    const COURT_BG = 'radial-gradient(120% 90% at 50% -10%, #18222f 0%, #0b0d11 55%)';
+    const SPONSOR_BG = 'radial-gradient(120% 100% at 50% 28%, #122a44 0%, #090b0f 62%)';
+    const PROMO_BG = 'radial-gradient(120% 100% at 50% 18%, #20232b 0%, #0a0b0e 60%)';
+
+    const frames = [];
+    const addSport = (courts, results, label, accent) => {
+      const chunks = paginate(courts); const pages = chunks.length;
+      chunks.forEach((chunk, pi) => {
+        frames.push({
+          id: label + '-' + pi, isCourt: true, isSponsor: false, isResults: false, isPromo: false,
+          sportLabel: label, accent, sub: sub(courts),
+          pageLabel: pages > 1 ? ('Pagina ' + (pi + 1) + '/' + pages) : '',
+          countLabel: courts.length + ' banen',
+          cols: chunk.length <= 1 ? '1fr' : 'repeat(2, 1fr)',
+          courts: chunk, results: [], bg: COURT_BG, dur: s.secCourt,
+        });
+      });
+      const rpages = paginateN(results, RES_PER); const rp = rpages.length;
+      rpages.forEach((chunk, pi) => {
+        frames.push({
+          id: label + '-res-' + pi, isCourt: false, isSponsor: false, isResults: true, isPromo: false,
+          sportLabel: label, accent, sub: '',
+          pageLabel: rp > 1 ? ('Pagina ' + (pi + 1) + '/' + rp) : '',
+          countLabel: results.length + ' uitslagen',
+          cols: 'repeat(3, 1fr)', courts: [], results: chunk, bg: COURT_BG, dur: s.secResults,
+        });
+      });
+    };
+    addSport(tCourts, tResults, 'TENNIS', s.tennisColor);
+    addSport(pCourts, pResults, 'PADEL', s.padelColor);
+    if (s.showPromo) frames.push({ id: 'promo', isCourt: false, isSponsor: false, isResults: false, isPromo: true, sportLabel: '', accent: s.promoColor, sub: '', pageLabel: '', countLabel: '', cols: '1fr', courts: [], results: [], eyebrow: s.promoEyebrow, message: s.promoMessage, cta: s.promoCta, bg: PROMO_BG, dur: s.secPromo });
+    if (s.showSponsor) frames.push({ id: 'sponsor', isCourt: false, isSponsor: true, isResults: false, isPromo: false, sportLabel: '', accent: '#7da7d4', sub: '', pageLabel: '', countLabel: '', cols: '1fr', courts: [], results: [], bg: SPONSOR_BG, dur: s.secSponsor });
+
+    const total = frames.reduce((a, f) => a + f.dur, 0);
+    let curIdx = -1;
+    if (total > 0) { let e = t % total; for (let i = 0; i < frames.length; i++) { if (e < frames[i].dur) { curIdx = i; break; } e -= frames[i].dur; } }
+    frames.forEach((f, i) => { f.op = i === curIdx ? 1 : 0; });
+    const dots = frames.map((f, i) => ({ op: i === curIdx ? 1 : 0.28 }));
+
+    const pretty = lbl => lbl.charAt(0) + lbl.slice(1).toLowerCase();
+    let currentLabel = 'Geen schermen actief';
+    if (curIdx >= 0) { const f = frames[curIdx]; const base = f.isSponsor ? 'Sponsorslide' : (f.isPromo ? 'Marketing' : (pretty(f.sportLabel) + (f.isResults ? ' uitslagen' : ''))); currentLabel = base + (f.pageLabel ? (' · ' + f.pageLabel) : ''); }
+
+    const pagesLabel = n => { const p = this.pagesFor(n); return p <= 1 ? '1 pagina' : p + ' pagina\u2019s'; };
+
+    const sw = on => ({ track: on ? '#15171c' : '#cdcabf', knob: on ? 'translateX(22px)' : 'translateX(0px)' });
+    const tn = sw(s.showTennis), pd = sw(s.showPadel), sp = sw(s.showSponsor), rs = sw(s.showResults), ps = sw(s.showPromo);
+    const initials = (s.clubName.replace(/[^A-Za-z ]/g, ' ').split(/\s+/).filter(Boolean).map(w => w[0]).join('').slice(0, 2).toUpperCase()) || 'TV';
+    const isWeergave = this.state.tab === 'weergave';
+    const mk = (src, style) => (src ? React.createElement('img', { src, style }) : null);
+
+    return {
+      isWeergave,
+      isInstellingen: !isWeergave,
+      goWeergave: () => this.setState({ tab: 'weergave' }),
+      goInstellingen: () => this.setState({ tab: 'instellingen' }),
+      navWBg: isWeergave ? '#ffffff' : 'transparent',
+      navWColor: isWeergave ? '#0b0d11' : '#8b93a3',
+      navIBg: !isWeergave ? '#ffffff' : 'transparent',
+      navIColor: !isWeergave ? '#0b0d11' : '#8b93a3',
+      liveStatus: (s.tennisBanen + s.padelBanen) + ' banen live',
+
+      // display props
+      clubName: s.clubName,
+      clubLogo: s.clubLogo,
+      clubHasLogo: !!s.clubLogo,
+      clubNoLogo: !s.clubLogo,
+      clubInitials: initials,
+      clubLogoPreview: mk(s.clubLogo, { height: '48px', maxWidth: '180px', objectFit: 'contain' }),
+      sponsorLogoPreview: mk(s.sponsorLogo, { height: '56px', maxWidth: '240px', objectFit: 'contain' }),
+      clockLabel, dateLabel,
+      frames, dots, currentLabel,
+      sponsorName: s.sponsorName,
+      sponsorTagline: s.sponsorTagline,
+      sponsorLogo: s.sponsorLogo,
+      sponsorNoLogo: !s.sponsorLogo,
+      sponsorHasLogo: !!s.sponsorLogo,
+
+      // scaling
+      bigScale: this.state.bigScale,
+      smallScale: this.state.smallScale,
+      setBigBox: this.setBigBox,
+      setSmallBox: this.setSmallBox,
+
+      // form values
+      tennisColor: s.tennisColor,
+      padelColor: s.padelColor,
+      secCourt: s.secCourt,
+      secSponsor: s.secSponsor,
+      secResults: s.secResults,
+      tennisBanen: s.tennisBanen,
+      padelBanen: s.padelBanen,
+      tennisResults: s.tennisResults,
+      padelResults: s.padelResults,
+      secPromo: s.secPromo,
+      promoEyebrow: s.promoEyebrow,
+      promoMessage: s.promoMessage,
+      promoCta: s.promoCta,
+      promoColor: s.promoColor,
+      rsTrack: rs.track, rsKnob: rs.knob,
+      psTrack: ps.track, psKnob: ps.knob,
+      tennisPagesLabel: pagesLabel(s.tennisBanen),
+      padelPagesLabel: pagesLabel(s.padelBanen),
+      tnTrack: tn.track, tnKnob: tn.knob,
+      pdTrack: pd.track, pdKnob: pd.knob,
+      spTrack: sp.track, spKnob: sp.knob,
+
+      // handlers
+      onClubName: e => this.update({ clubName: e.target.value }),
+      onSponsorName: e => this.update({ sponsorName: e.target.value }),
+      onSponsorTagline: e => this.update({ sponsorTagline: e.target.value }),
+      onClubLogo: e => this.readFile(e, 'clubLogo'),
+      onSponsorLogo: e => this.readFile(e, 'sponsorLogo'),
+      clearClubLogo: () => this.update({ clubLogo: '' }),
+      clearSponsorLogo: () => this.update({ sponsorLogo: '' }),
+      toggleTennis: () => this.update({ showTennis: !s.showTennis }),
+      togglePadel: () => this.update({ showPadel: !s.showPadel }),
+      toggleSponsor: () => this.update({ showSponsor: !s.showSponsor }),
+      onSecCourt: e => this.update({ secCourt: +e.target.value }),
+      onSecSponsor: e => this.update({ secSponsor: +e.target.value }),
+      onSecResults: e => this.update({ secResults: +e.target.value }),
+      onSecPromo: e => this.update({ secPromo: +e.target.value }),
+      toggleResults: () => this.update({ showResults: !s.showResults }),
+      togglePromo: () => this.update({ showPromo: !s.showPromo }),
+      onPromoEyebrow: e => this.update({ promoEyebrow: e.target.value }),
+      onPromoMessage: e => this.update({ promoMessage: e.target.value }),
+      onPromoCta: e => this.update({ promoCta: e.target.value }),
+      onPromoColor: e => this.update({ promoColor: e.target.value }),
+      onTennisResults: e => this.update({ tennisResults: +e.target.value }),
+      onPadelResults: e => this.update({ padelResults: +e.target.value }),
+      onTennisColor: e => this.update({ tennisColor: e.target.value }),
+      onPadelColor: e => this.update({ padelColor: e.target.value }),
+      onTennisBanen: e => this.update({ tennisBanen: +e.target.value }),
+      onPadelBanen: e => this.update({ padelBanen: +e.target.value }),
+      resetSettings: () => this.update({ ...this.DEFAULTS }),
+    };
+  }
+}
+</script>
+</body>
+</html>

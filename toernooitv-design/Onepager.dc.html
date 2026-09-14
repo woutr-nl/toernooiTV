@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:#e7e5df;}
+  @media print{ body{background:#fff;} @page{size:A4;margin:0;} }
+</style>
+</helmet>
+
+<div style="width:794px; min-height:1123px; margin:0 auto; background:#faf9f6; font-family:Archivo, sans-serif; color:#1b1a17; display:flex; flex-direction:column;">
+
+  <!-- HERO -->
+  <div style="background:radial-gradient(120% 130% at 80% -20%, #18222f 0%, #0b0d11 58%); color:#fff; padding:28px 52px 22px; position:relative; overflow:hidden;">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:22px;">
+      <div style="display:flex; align-items:center; gap:13px;">
+        <div style="width:38px; height:38px; border-radius:10px; background:#fff; display:flex; align-items:center; justify-content:center;">
+          <span style="width:15px; height:15px; border-radius:50%; background:#ff3b3b;"></span>
+        </div>
+        <span style="font:800 23px Archivo; letter-spacing:.3px;">Toernooi TV</span>
+      </div>
+      <span style="display:inline-flex; align-items:center; gap:9px; font:800 13px Archivo; letter-spacing:2px; color:#ff5a5a;">
+        <span style="width:9px; height:9px; border-radius:50%; background:#ff3b3b;"></span>LIVE SCOREBORD
+      </span>
+    </div>
+
+    <div style="font:700 13px 'JetBrains Mono'; letter-spacing:4px; color:#7da7d4; margin-bottom:14px;">VOOR TENNIS- &amp; PADELCLUBS</div>
+    <div style="font:900 42px Archivo; letter-spacing:-1.5px; line-height:1.03; max-width:600px;">Laat je toernooi leven in de kantine.</div>
+    <div style="font:500 18px Archivo; color:#b9c0cc; line-height:1.4; max-width:560px; margin-top:16px;">Toernooi TV toont live banen, uitslagen en je sponsors op één scherm. Automatisch, altijd actueel en direct gekoppeld aan je toernooisoftware.</div>
+
+    <!-- mini scoreboard mock -->
+    <div style="display:flex; gap:14px; margin-top:18px;">
+      <div style="flex:1; background:#14171d; border:1px solid rgba(255,255,255,.08); border-radius:14px; padding:15px 20px; position:relative; overflow:hidden;">
+        <div style="position:absolute; top:0; left:0; bottom:0; width:5px; background:#c8f24a;"></div>
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+          <span style="font:700 11px Archivo; letter-spacing:2px; color:#7d8696;">BAAN 3 · TENNIS</span>
+          <span style="display:inline-flex; align-items:center; gap:6px; font:800 11px Archivo; letter-spacing:1px; color:#c8f24a;"><span style="width:8px;height:8px;border-radius:50%;background:#c8f24a;"></span>OP DE BAAN</span>
+        </div>
+        <div style="font:700 19px Archivo; color:#f2f4f8;">R. van der Berg</div>
+        <div style="font:800 11px Archivo; letter-spacing:2px; color:#5b6473; margin:4px 0;">VS</div>
+        <div style="font:700 19px Archivo; color:#f2f4f8;">T. Jansen</div>
+      </div>
+      <div style="flex:1; background:#14171d; border:1px solid rgba(255,255,255,.08); border-radius:14px; padding:15px 20px; position:relative; overflow:hidden;">
+        <div style="position:absolute; top:0; left:0; bottom:0; width:5px; background:#3da9fc;"></div>
+        <span style="font:700 11px Archivo; letter-spacing:2px; color:#7d8696;">PADEL · UITSLAG</span>
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-top:12px;">
+          <span style="font:800 17px Archivo; color:#fff;">de Vries / Smit</span>
+          <span style="font:700 17px 'JetBrains Mono'; color:#3da9fc;">6-3 6-4</span>
+        </div>
+        <div style="font:600 16px Archivo; color:#7d8696; margin-top:6px;">Kok / Maas</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BODY -->
+  <div style="padding:18px 52px 16px; flex:1; display:flex; flex-direction:column;">
+
+    <div style="font:800 13px Archivo; letter-spacing:2px; color:#8a8578; text-transform:uppercase; margin-bottom:12px;">Alles op één scherm</div>
+
+    <!-- features 2x2 -->
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:11px;">
+      <div style="background:#fff; border:1px solid rgba(0,0,0,.08); border-radius:14px; padding:14px 22px;">
+        <div style="display:flex; align-items:center; gap:11px; margin-bottom:6px;"><span style="width:13px; height:13px; border-radius:50%; background:#c8f24a;"></span><span style="font:800 18px Archivo;">Live banen</span></div>
+        <div style="font:500 14px Archivo; color:#56524a; line-height:1.35;">Wie speelt waar, en wie is straks aan de beurt. Realtime, zonder dat iemand iets hoeft bij te werken.</div>
+      </div>
+      <div style="background:#fff; border:1px solid rgba(0,0,0,.08); border-radius:14px; padding:14px 22px;">
+        <div style="display:flex; align-items:center; gap:11px; margin-bottom:6px;"><span style="width:13px; height:13px; border-radius:50%; background:#c6a15b;"></span><span style="font:800 18px Archivo;">Uitslagen</span></div>
+        <div style="font:500 14px Archivo; color:#56524a; line-height:1.35;">Alle gespeelde wedstrijden overzichtelijk op een rij — zoveel mogelijk resultaten per scherm.</div>
+      </div>
+      <div style="background:#fff; border:1px solid rgba(0,0,0,.08); border-radius:14px; padding:14px 22px;">
+        <div style="display:flex; align-items:center; gap:11px; margin-bottom:6px;"><span style="width:13px; height:13px; border-radius:50%; background:#7da7d4;"></span><span style="font:800 18px Archivo;">Sponsors in beeld</span></div>
+        <div style="font:500 14px Archivo; color:#56524a; line-height:1.35;">Geef je hoofdsponsor een volledig scherm in de rotatie. Telkens opnieuw, de hele dag.</div>
+      </div>
+      <div style="background:#fff; border:1px solid rgba(0,0,0,.08); border-radius:14px; padding:14px 22px;">
+        <div style="display:flex; align-items:center; gap:11px; margin-bottom:6px;"><span style="width:13px; height:13px; border-radius:50%; background:#ff5a3c;"></span><span style="font:800 18px Archivo;">Eigen promo</span></div>
+        <div style="font:500 14px Archivo; color:#56524a; line-height:1.35;">Ledenwerving, een drankje aan de bar of de volgende clubavond — je eigen boodschap ertussen.</div>
+      </div>
+    </div>
+
+    <!-- zo werkt het -->
+    <div style="font:800 13px Archivo; letter-spacing:2px; color:#8a8578; text-transform:uppercase; margin:14px 0 12px;">Zo werkt het</div>
+    <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px;">
+      <div style="display:flex; flex-direction:column; gap:9px;">
+        <span style="font:800 26px 'JetBrains Mono'; color:#1b1a17;">01</span>
+        <span style="font:800 16px Archivo;">Koppel je toernooi</span>
+        <span style="font:500 14px Archivo; color:#56524a; line-height:1.4;">Sluit aan op je bestaande toernooisoftware. Geen dubbel werk.</span>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:9px;">
+        <span style="font:800 26px 'JetBrains Mono'; color:#1b1a17;">02</span>
+        <span style="font:800 16px Archivo;">Hang een scherm op</span>
+        <span style="font:500 14px Archivo; color:#56524a; line-height:1.4;">Elke smart-tv of mediaplayer met een browser volstaat.</span>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:9px;">
+        <span style="font:800 26px 'JetBrains Mono'; color:#1b1a17;">03</span>
+        <span style="font:800 16px Archivo;">Klaar</span>
+        <span style="font:500 14px Archivo; color:#56524a; line-height:1.4;">Het bord ververst zichzelf en wisselt automatisch tussen schermen.</span>
+      </div>
+    </div>
+
+    <!-- waarom -->
+    <div style="background:#0b0d11; border-radius:16px; padding:16px 30px; margin-top:14px; display:grid; grid-template-columns:1fr 1fr 1fr; gap:24px;">
+      <div>
+        <div style="font:800 26px Archivo; color:#c8f24a; margin-bottom:5px;">Spelers</div>
+        <div style="font:500 14px Archivo; color:#aeb6c4; line-height:1.4;">zien direct waar ze moeten zijn — minder vragen aan de wedstrijdtafel.</div>
+      </div>
+      <div>
+        <div style="font:800 26px Archivo; color:#7da7d4; margin-bottom:5px;">Bezoekers</div>
+        <div style="font:500 14px Archivo; color:#aeb6c4; line-height:1.4;">blijven hangen in de kantine — en zien je sponsors voorbijkomen.</div>
+      </div>
+      <div>
+        <div style="font:800 26px Archivo; color:#ff5a3c; margin-bottom:5px;">Sponsors</div>
+        <div style="font:500 14px Archivo; color:#aeb6c4; line-height:1.4;">krijgen echte zichtbaarheid, de hele toernooidag lang.</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- FOOTER CTA -->
+  <div style="background:#ff5a3c; padding:15px 52px; display:flex; align-items:center; justify-content:space-between;">
+    <div>
+      <div style="font:900 26px Archivo; color:#0b0d11; letter-spacing:-.5px;">Klaar voor je volgende toernooi?</div>
+      <div style="font:600 15px Archivo; color:#3a1a12; margin-top:4px;">Plan een gratis demo — we hangen het bord met je op.</div>
+    </div>
+    <div style="text-align:right;">
+      <div style="font:800 18px 'JetBrains Mono'; color:#0b0d11;">toernooi.tv</div>
+      <div style="font:600 14px Archivo; color:#3a1a12; margin-top:2px;">hallo@toernooi.tv</div>
+    </div>
+  </div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:794,&quot;height&quot;:1123}}"></script>
+</body>
+</html>
