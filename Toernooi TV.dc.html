@@ -396,6 +396,10 @@
               <button onClick="{{ toggleResults }}" style="position:relative; width:52px; height:30px; border-radius:999px; border:none; cursor:pointer; padding:0; background:{{ rsTrack }}; transition:background .2s;"><span style="position:absolute; top:3px; left:3px; width:24px; height:24px; border-radius:50%; background:#fff; box-shadow:0 1px 2px rgba(0,0,0,.3); transform:{{ rsKnob }}; transition:transform .2s;"></span></button>
             </div>
             <div style="display:flex; align-items:center; justify-content:space-between; padding:14px 0; border-bottom:1px solid rgba(0,0,0,.06);">
+              <div style="display:flex; align-items:center; gap:12px;"><span style="width:12px; height:12px; border-radius:50%; background:#c6a15b;"></span><span style="font:700 16px Archivo; color:#1b1a17;">Walkovers tonen</span></div>
+              <button onClick="{{ toggleWalkovers }}" style="position:relative; width:52px; height:30px; border-radius:999px; border:none; cursor:pointer; padding:0; background:{{ wkTrack }}; transition:background .2s;"><span style="position:absolute; top:3px; left:3px; width:24px; height:24px; border-radius:50%; background:#fff; box-shadow:0 1px 2px rgba(0,0,0,.3); transform:{{ wkKnob }}; transition:transform .2s;"></span></button>
+            </div>
+            <div style="display:flex; align-items:center; justify-content:space-between; padding:14px 0; border-bottom:1px solid rgba(0,0,0,.06);">
               <div style="display:flex; align-items:center; gap:12px;"><span style="width:12px; height:12px; border-radius:50%; background:{{ promoColor }};"></span><span style="font:700 16px Archivo; color:#1b1a17;">Marketingslide</span></div>
               <button onClick="{{ togglePromo }}" style="position:relative; width:52px; height:30px; border-radius:999px; border:none; cursor:pointer; padding:0; background:{{ psTrack }}; transition:background .2s;"><span style="position:absolute; top:3px; left:3px; width:24px; height:24px; border-radius:50%; background:#fff; box-shadow:0 1px 2px rgba(0,0,0,.3); transform:{{ psKnob }}; transition:transform .2s;"></span></button>
             </div>
@@ -569,6 +573,7 @@ class Component extends DCLogic {
     showPadel: true,
     showSponsor: true,
     showResults: true,
+    showWalkovers: true,
     showPromo: true,
     secCourt: 8,
     secSponsor: 6,
@@ -1067,8 +1072,9 @@ class Component extends DCLogic {
             sport: r.sport,
           };
         });
-        tResults = s.showTennis ? rs.filter(r => r.sport !== 'padel') : [];
-        pResults = s.showPadel ? rs.filter(r => r.sport === 'padel') : [];
+        const shown = s.showWalkovers ? rs : rs.filter(r => !r.isWO);
+        tResults = s.showTennis ? shown.filter(r => r.sport !== 'padel') : [];
+        pResults = s.showPadel ? shown.filter(r => r.sport === 'padel') : [];
       } else if (inPreview) {
         tResults = s.showTennis ? genResults(this.TENNIS_POOL, 'tennis', s.tennisColor, SC_T, s.tennisResults) : [];
         pResults = s.showPadel ? genResults(this.PADEL_POOL, 'padel', s.padelColor, SC_P, s.padelResults) : [];
@@ -1147,7 +1153,7 @@ class Component extends DCLogic {
     const pagesLabel = n => { const p = this.pagesFor(n); return p <= 1 ? '1 pagina' : p + ' pagina’s'; };
 
     const sw = on => ({ track: on ? '#15171c' : '#cdcabf', knob: on ? 'translateX(22px)' : 'translateX(0px)' });
-    const tn = sw(s.showTennis), pd = sw(s.showPadel), sp = sw(s.showSponsor), rs = sw(s.showResults), ps = sw(s.showPromo);
+    const tn = sw(s.showTennis), pd = sw(s.showPadel), sp = sw(s.showSponsor), rs = sw(s.showResults), wk = sw(s.showWalkovers), ps = sw(s.showPromo);
     const initials = (s.clubName.replace(/[^A-Za-z ]/g, ' ').split(/\s+/).filter(Boolean).map(w => w[0]).join('').slice(0, 2).toUpperCase()) || 'TV';
     const isBeheer = this.state.tab === 'beheer';
     const isSetup = this.state.tab === 'setup';
@@ -1324,6 +1330,7 @@ class Component extends DCLogic {
       pdTrack: pd.track, pdKnob: pd.knob,
       spTrack: sp.track, spKnob: sp.knob,
       rsTrack: rs.track, rsKnob: rs.knob,
+      wkTrack: wk.track, wkKnob: wk.knob,
       psTrack: ps.track, psKnob: ps.knob,
 
       // handlers
@@ -1338,6 +1345,7 @@ class Component extends DCLogic {
       togglePadel: () => this.update({ showPadel: !s.showPadel }),
       toggleSponsor: () => this.update({ showSponsor: !s.showSponsor }),
       toggleResults: () => this.update({ showResults: !s.showResults }),
+      toggleWalkovers: () => this.update({ showWalkovers: !s.showWalkovers }),
       togglePromo: () => this.update({ showPromo: !s.showPromo }),
       onSecCourt: e => this.update({ secCourt: +e.target.value }),
       onSecSponsor: e => this.update({ secSponsor: +e.target.value }),

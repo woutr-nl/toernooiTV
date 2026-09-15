@@ -116,12 +116,13 @@ class PortalClientTest(unittest.TestCase):
     def test_applies_portal_config(self):
         self.replies((200, {"linked": True, "name": "Kantine", "configRev": 2, "commands": [], "config": {
             "display": {"clubName": "Kantine", "secCourt": 999, "promoColor": "javascript:x",
-                        "clubLogo": "data:image/bmp;base64,Qk0="},
+                        "clubLogo": "data:image/bmp;base64,Qk0=", "showWalkovers": False},
             "tournaments": [{"code": "t2", "label": ""}, {"label": "no code"}]}}))
         server.portal_sync()
         _, cfg = self.call("GET", "/config")
         d = cfg["display"]
         self.assertEqual((d["clubName"], d["secCourt"], d["promoColor"]), ("Kantine", 20, server.DISPLAY_DEFAULTS["promoColor"]))
+        self.assertIs(d["showWalkovers"], False)
         self.assertEqual(cfg["tournaments"], [{"code": "t2", "label": "Toernooi", "enabled": True}])
         self.assertEqual((cfg["managed"], cfg["portalName"]), (True, "Kantine"))
         saved = self.saved()

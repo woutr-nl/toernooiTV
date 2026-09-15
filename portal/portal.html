@@ -324,9 +324,9 @@ function DisplayEditor({ d, reload }) {
   const v = k => (k in edits ? edits[k] : d.display[k]);
   const set = (k, val) => setEdits(e => ({ ...e, [k]: val }));
   const text = (k, label) => h(Field, { label }, h(Input, { value: v(k) == null ? '' : v(k), maxLength: 300, onChange: e => set(k, e.target.value) }));
-  const toggle = (k, label, dot) => h('div', { style: S.row },
+  const toggle = (k, label, dot, dflt) => { const on = v(k) == null ? !!dflt : !!v(k); return h('div', { style: S.row },
     h('span', { style: { display: 'flex', alignItems: 'center', gap: 12, font: '700 16px Archivo' } }, h('span', { style: { width: 12, height: 12, borderRadius: '50%', background: dot } }), label),
-    h(Toggle, { on: !!v(k), onClick: () => set(k, !v(k)) }));
+    h(Toggle, { on, onClick: () => set(k, !on) })); };
   const save = () => run(() => api('POST', '/api/boxes/' + d.boxId + '/display', { display: edits }).then(() => { setEdits({}); reload(); }),
     'Opgeslagen — het scherm neemt het binnen ~30 s over' + (d.online ? '' : ' zodra het weer online is'));
 
@@ -347,6 +347,7 @@ function DisplayEditor({ d, reload }) {
       toggle('showPadel', "Padel-pagina's", v('padelColor')),
       toggle('showSponsor', 'Sponsorslide', '#7da7d4'),
       toggle('showResults', "Uitslagen-pagina's", '#c6a15b'),
+      toggle('showWalkovers', 'Walkovers tonen', '#c6a15b', true),
       toggle('showPromo', 'Marketingslide', v('promoColor')),
       h(Slider, { label: 'Seconden per baan-pagina', value: v('secCourt'), min: 4, max: 20, unit: 's', onChange: x => set('secCourt', x) }),
       h(Slider, { label: 'Seconden per sponsorslide', value: v('secSponsor'), min: 3, max: 15, unit: 's', onChange: x => set('secSponsor', x) }),

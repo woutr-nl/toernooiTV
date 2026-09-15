@@ -15,6 +15,7 @@
     "showPadel": true,
     "showSponsor": true,
     "showResults": true,
+    "showWalkovers": true,
     "showPromo": true,
     "secCourt": 8,
     "secSponsor": 6,
