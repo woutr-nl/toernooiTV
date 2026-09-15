@@ -74,7 +74,12 @@ user from the owner of that directory, and generates the systemd units from the
 
 What it sets up:
 - `cage` + `chromium` kiosk → fullscreen `http://localhost:8770/` on tty1/HDMI
-  (`appliance/toernooitv-kiosk.service`, launcher `appliance/kiosk.sh`)
+  (`appliance/toernooitv-kiosk.service`, launcher `appliance/kiosk.sh`). The TV
+  shows no mouse pointer: cage draws its `left_ptr` arrow at screen centre, so
+  `kiosk.sh` links a transparent cursor theme (`appliance/hidden-cursor-theme`)
+  as `~/.icons/default` itself — updates via "Nu bijwerken" need no reinstall. A
+  plugged-in mouse shows its pointer while moving; the display page hides it
+  again ~4 s after the last movement.
 - `toernooitv-server.service` → the server on boot
 - `comitup` → wifi onboarding. No known wifi ⇒ the Pi broadcasts
   **`ToernooiTV-setup-…`**; connect a phone, the captive portal (`http://10.41.0.1`)

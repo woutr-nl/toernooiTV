@@ -52,6 +52,12 @@ for unit in toernooitv-server.service toernooitv-kiosk.service toernooitv-update
 done
 chmod +x "$APP/appliance/kiosk.sh" "$APP/appliance/hotspot-dhcp.sh"
 
+echo "==> Hiding the idle mouse pointer on the HDMI display (transparent cursor theme)…"
+USER_HOME="$(getent passwd "$USER_NAME" | cut -d: -f6)"
+install -d -o "$USER_NAME" -g "$(id -gn "$USER_NAME")" "$USER_HOME/.icons"
+ln -sfn "$APP/appliance/hidden-cursor-theme" "$USER_HOME/.icons/default"
+chown -h "$USER_NAME:$(id -gn "$USER_NAME")" "$USER_HOME/.icons/default"
+
 echo "==> Allowing the server to start the updater (sudoers)…"
 tmp="$(mktemp)"
 render sudoers > "$tmp"

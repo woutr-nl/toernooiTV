@@ -20,6 +20,10 @@ for u in toernooitv-server toernooitv-kiosk comitup avahi-daemon; do
 done
 systemctl is-enabled --quiet toernooitv-kiosk 2>/dev/null && ok "kiosk enabled at boot" || bad "kiosk not enabled"
 if systemctl is-active --quiet getty@tty1; then bad "getty@tty1 still owns tty1 (kiosk needs it)"; else ok "getty@tty1 stepped aside"; fi
+khome="$(getent passwd "$(stat -c %U "$APP")" | cut -d: -f6)"
+[ "$(readlink "$khome/.icons/default" 2>/dev/null)" = "$APP/appliance/hidden-cursor-theme" ] \
+  && ok "hidden cursor theme linked (no idle pointer on the TV)" \
+  || bad "hidden cursor theme not linked (sudo systemctl restart toernooitv-kiosk installs it)"
 
 echo "== web server =="
 for port in 8770 80; do
