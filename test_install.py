@@ -4,6 +4,7 @@ Run: python3 test_install.py"""
 
 import os
 import shutil
+import struct
 import subprocess
 import tempfile
 import unittest
@@ -54,6 +55,46 @@ class InstallTest(unittest.TestCase):
         for script in ("install-kiosk.sh", "verify-appliance.sh", "appliance/hotspot-dhcp.sh"):
             r = subprocess.run(["bash", "-n", os.path.join(HERE, script)], capture_output=True, text=True)
             self.assertEqual(r.returncode, 0, script + ": " + r.stderr)
+
+
+def read(path, mode="r"):
+    with open(os.path.join(HERE, path), mode, **({} if "b" in mode else {"encoding": "utf-8"})) as f:
+        return f.read()
+
+
+class TestKioskCursor(unittest.TestCase):
+    def test_kiosk_sh_installs_hidden_cursor_theme(self):
+        s = read("appliance/kiosk.sh")
+        for needle in ("hidden-cursor-theme", "ln -sfn", "export XCURSOR_PATH=/usr/share/icons:/usr/share/pixmaps"):
+            self.assertIn(needle, s)
+        self.assertLess(s.index("hidden-cursor-theme"), s.index('while [ "$i" -lt 60 ]'))
+        self.assertLess(s.index("export XCURSOR_PATH="), s.index("exec chromium"))
+
+    def test_kiosk_sh_syntax(self):
+        r = subprocess.run(["sh", "-n", os.path.join(HERE, "appliance/kiosk.sh")], capture_output=True, text=True)
+        self.assertEqual(r.returncode, 0, r.stderr)
+
+    def test_hidden_cursor_theme_files(self):
+        theme = os.path.join(HERE, "appliance/hidden-cursor-theme")
+        self.assertTrue(os.path.isfile(os.path.join(theme, "index.theme")))
+        # A transparent "default" would also blank a real mouse drawn via cursor-shape.
+        self.assertFalse(os.path.lexists(os.path.join(theme, "cursors/default")))
+        b = read("appliance/hidden-cursor-theme/cursors/left_ptr", "rb")
+        self.assertEqual(len(b), 68)
+        magic, _hdr, _ver, ntoc, ctype, _size, off = struct.unpack_from("<4s6I", b)
+        self.assertEqual((magic, ntoc, ctype), (b"Xcur", 1, 0xFFFD0002))
+        _chdr, itype, _sub, _v, w, h, _xh, _yh, _delay, pixel = struct.unpack_from("<10I", b, off)
+        self.assertEqual((itype, w, h, pixel), (0xFFFD0002, 1, 1, 0))
+
+    def test_installer_links_cursor_theme(self):
+        s = read("install-kiosk.sh")
+        self.assertIn(".icons", s)
+        self.assertIn("hidden-cursor-theme", s)
+
+    def test_display_page_idles_cursor(self):
+        s = read("Toernooi TV.dc.html")
+        for needle in ("tv-cursor-idle", "cursor:none", "pointermove"):
+            self.assertIn(needle, s)
 
 
 if __name__ == "__main__":

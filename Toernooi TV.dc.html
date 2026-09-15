@@ -19,6 +19,7 @@
   body{background:#e7e5df;}
   @keyframes livepulse{0%,100%{opacity:1;}50%{opacity:.28;}}
   input[type=range]{accent-color:#15171c;}
+  html.tv-cursor-idle, html.tv-cursor-idle *{cursor:none !important;}
 </style>
 </helmet>
 
@@ -647,8 +648,16 @@ class Component extends DCLogic {
     this._onResize = () => this._measure();
     window.addEventListener('resize', this._onResize);
     this._measure();
+    this._wakeCursor = () => {
+      if (this.state.tab !== 'display') return;
+      document.documentElement.classList.remove('tv-cursor-idle');
+      clearTimeout(this._cursorT);
+      this._cursorT = setTimeout(() => document.documentElement.classList.add('tv-cursor-idle'), 4000);
+    };
+    window.addEventListener('pointermove', this._wakeCursor);
+    window.addEventListener('pointerdown', this._wakeCursor);
   }
-  componentWillUnmount() { clearInterval(this._iv); clearInterval(this._cfgIv); clearTimeout(this._pushTimer); clearInterval(this._bv); clearInterval(this._sv); clearInterval(this._wv); clearInterval(this._hb); clearInterval(this._dr); clearTimeout(this._updTimer); window.removeEventListener('hashchange', this._onHash); window.removeEventListener('resize', this._onResize); }
+  componentWillUnmount() { clearInterval(this._iv); clearInterval(this._cfgIv); clearTimeout(this._pushTimer); clearInterval(this._bv); clearInterval(this._sv); clearInterval(this._wv); clearInterval(this._hb); clearInterval(this._dr); clearTimeout(this._updTimer); clearTimeout(this._cursorT); window.removeEventListener('hashchange', this._onHash); window.removeEventListener('resize', this._onResize); window.removeEventListener('pointermove', this._wakeCursor); window.removeEventListener('pointerdown', this._wakeCursor); }
 
   // Device/network status for the on-screen overlay (online? on the setup hotspot?).
   _fetchStatus = () => {
@@ -708,6 +717,9 @@ class Component extends DCLogic {
     const beheer = beheerRe.test(p) ||
       h === 'beheer' || h === 'instellingen' || h === 'config' || h === 'settings';
     this.setState({ tab: setup ? 'setup' : beheer ? 'beheer' : 'display' });
+    // kiosk: the display hides the pointer until the mouse moves (see _wakeCursor)
+    clearTimeout(this._cursorT);
+    document.documentElement.classList.toggle('tv-cursor-idle', !setup && !beheer);
   };
 
   // Pull live court data from the local proxy (server.py /board). Fails quietly
