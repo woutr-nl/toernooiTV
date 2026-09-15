@@ -219,6 +219,12 @@ class PortalClientTest(unittest.TestCase):
         os.remove(server.UPDATE_STATE_PATH)
         server.portal_sync()
         self.assertEqual(self.stub.requests[-1]["results"], [{"id": 10, "ok": False, "output": "geen resultaat"}])
+        # no release tags on origin yet: neutral, not a failure
+        server.CONFIG["portal"]["pending"] = {"id": 11, "kind": "update", "at": time.time()}
+        with open(server.UPDATE_STATE_PATH, "w") as f:
+            json.dump({"status": "no-release", "startedAt": stamp()}, f)
+        server.portal_sync()
+        self.assertEqual(self.stub.requests[-1]["results"], [{"id": 11, "ok": True, "output": "no-release"}])
 
     def test_managed_gating(self):
         self.linked()

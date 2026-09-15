@@ -100,6 +100,7 @@ function updateLabel(u) {
   if (!u) return 'Nog nooit bijgewerkt';
   if (u.status === 'ok') return 'Bijgewerkt van ' + (u.from || '?') + ' naar ' + u.to + (u.finishedAt ? ' · ' + new Date(u.finishedAt).toLocaleString('nl-NL') : '');
   if (u.status === 'up-to-date') return 'Al up-to-date (' + u.to + ')';
+  if (u.status === 'no-release') return 'Nog geen release beschikbaar';
   if (u.status === 'running') return 'Bezig met bijwerken…';
   if (u.status === 'rolled-back') return 'Update naar ' + u.to + ' mislukt — teruggezet naar ' + (u.from || '?') + (u.error ? ': ' + u.error : '');
   return 'Update mislukt' + (u.error ? ': ' + u.error : '');

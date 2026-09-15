@@ -803,6 +803,7 @@ class Component extends DCLogic {
               if (!u || u.startedAt === prevStarted || u.status === 'running') { this._updTimer = setTimeout(poll, 3000); return; }
               if (u.status === 'ok') setSw({ busy: false, bad: false, msg: 'Bijgewerkt naar ' + c.version + ' ✓' });
               else if (u.status === 'up-to-date') setSw({ busy: false, bad: false, msg: 'Al up-to-date ✓' });
+              else if (u.status === 'no-release') setSw({ busy: false, bad: false, msg: 'Nog geen release beschikbaar' });
               else setSw({ busy: false, bad: true, msg: u.error || 'Update mislukt' });
             })
             .catch(() => { this._updTimer = setTimeout(poll, 3000); });
@@ -1410,6 +1411,7 @@ class Component extends DCLogic {
       swUpdateLabel: !upd ? 'Nog nooit bijgewerkt'
         : upd.status === 'ok' ? 'Bijgewerkt van ' + (upd.from || '?') + ' naar ' + upd.to + (upd.finishedAt ? ' · ' + new Date(upd.finishedAt).toLocaleString('nl-NL') : '')
         : upd.status === 'up-to-date' ? 'Al up-to-date (' + upd.to + ')'
+        : upd.status === 'no-release' ? 'Nog geen release beschikbaar'
         : upd.status === 'running' ? 'Bezig met bijwerken…'
         : upd.status === 'rolled-back' ? 'Update naar ' + upd.to + ' mislukt — teruggezet naar ' + (upd.from || '?') + (upd.error ? ': ' + upd.error : '')
         : 'Update mislukt' + (upd.error ? ': ' + upd.error : ''),

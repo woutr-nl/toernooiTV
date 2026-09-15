@@ -73,7 +73,7 @@ PY
   # newest vX.Y.Z tag; pre-release/test tags (with a '-') are never picked
   TAG="$(git_ tag -l 'v[0-9]*' --sort=-version:refname | grep -v -- - | head -1)"
   if [ -z "$TAG" ]; then
-    write_state failed "geen release-tags (vX.Y.Z) gevonden op origin"
+    write_state no-release  # nothing released yet — not a failure
     return 0
   fi
   TO="$(git_ show "$TAG:VERSION" 2>/dev/null | tr -d '[:space:]')"

@@ -135,6 +135,73 @@ class InstallTemplatesTest(unittest.TestCase):
             r = subprocess.run([shell, "-n", os.path.join(HERE, name)], capture_output=True, text=True)
             self.assertEqual(r.returncode, 0, name + ": " + r.stderr)
 
+    def test_release_workflow_rules(self):
+        with open(os.path.join(HERE, ".github", "workflows", "portal-image.yml"), encoding="utf-8") as f:
+            wf = f.read()
+        release = wf[wf.index("\n  release:"):]
+        for needle in ("needs: publish", "refs/heads/main", r"^[0-9]+\.[0-9]+\.[0-9]+$",
+                       "ls-remote --exit-code", "refs/tags/v", "gh release create", "imagetools create", ":latest"):
+            self.assertIn(needle, release)
+        # image first, tag last: a failed retag must not leave a tag that skips the re-run
+        self.assertLess(release.index("imagetools create"), release.index("gh release create"))
+
+
+class UpdateScriptTest(unittest.TestCase):
+    """Runs the real appliance/update.sh against a local bare origin (sudo shimmed)."""
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.tmp, ignore_errors=True)
+        bindir = os.path.join(self.tmp, "bin")
+        os.makedirs(bindir)
+        shim = os.path.join(bindir, "sudo")
+        with open(shim, "w") as f:
+            f.write('#!/bin/sh\n[ "$1" = -H ] && shift; [ "$1" = -u ] && shift 2; exec "$@"\n')
+        os.chmod(shim, 0o755)
+        self.env = {**os.environ, "PATH": bindir + os.pathsep + os.environ["PATH"],
+                    "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t", "GIT_COMMITTER_NAME": "t",
+                    "GIT_COMMITTER_EMAIL": "t@t"}
+        self.app = os.path.join(self.tmp, "app")
+        self.git("init", "-q", "--bare", os.path.join(self.tmp, "origin.git"), cwd=self.tmp)
+        self.git("clone", "-q", os.path.join(self.tmp, "origin.git"), self.app, cwd=self.tmp)
+        os.makedirs(os.path.join(self.app, "appliance"))
+        shutil.copy(os.path.join(HERE, "appliance", "update.sh"), os.path.join(self.app, "appliance"))
+        with open(os.path.join(self.app, "VERSION"), "w") as f:
+            f.write("1.0.0\n")
+        with open(os.path.join(self.app, ".gitignore"), "w") as f:
+            f.write("update-state.json\n")
+        self.git("add", "-A")
+        self.git("commit", "-qm", "init")
+        self.git("push", "-q", "origin", "HEAD")
+        self.head = self.git("rev-parse", "HEAD")
+
+    def git(self, *args, cwd=None):
+        return subprocess.run(["git", *args], cwd=cwd or self.app, env=self.env, check=True,
+                              capture_output=True, text=True).stdout.strip()
+
+    def run_update(self):
+        r = subprocess.run(["bash", os.path.join(self.app, "appliance", "update.sh")], env=self.env,
+                           capture_output=True, text=True, timeout=60)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        with open(os.path.join(self.app, "update-state.json")) as f:
+            return json.load(f)
+
+    def assert_no_release(self, st):
+        self.assertEqual(st["status"], "no-release")
+        self.assertNotIn("error", st)
+        self.assertEqual((st["from"], st["to"]), ("1.0.0", ""))
+        self.assertEqual(self.git("rev-parse", "HEAD"), self.head)
+
+    def test_no_tags_writes_no_release(self):
+        self.assert_no_release(self.run_update())
+
+    def test_dash_tags_are_ignored(self):
+        self.git("tag", "v1.2.0-test")
+        self.git("push", "-q", "origin", "v1.2.0-test")
+        self.git("tag", "-d", "v1.2.0-test")
+        self.assert_no_release(self.run_update())
+        self.assertEqual(self.git("tag", "-l"), "v1.2.0-test")  # fetched, just not picked
+
 
 if __name__ == "__main__":
     unittest.main()
