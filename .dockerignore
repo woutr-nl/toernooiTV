@@ -1,5 +1,7 @@
 *
 !portal/
 !vendor/
+!Display.dc.html
+!support.js
 portal/uploads/
 **/__pycache__

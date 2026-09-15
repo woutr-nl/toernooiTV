@@ -49,6 +49,11 @@ from psycopg.rows import dict_row
 HERE = os.path.dirname(os.path.abspath(__file__))
 HTML_PATH = os.path.join(HERE, "portal.html")
 SITE_PATH = os.path.join(HERE, "site.html")
+ROOT_DIR = os.path.dirname(HERE)
+DEMO_PATH = os.path.join(HERE, "demo.html")  # live TV demo embedded in the site hero
+DISPLAY_PATH = os.path.join(ROOT_DIR, "Display.dc.html")
+SUPPORT_PATH = os.path.join(ROOT_DIR, "support.js")
+OG_PATH = os.path.join(HERE, "og.png")
 VENDOR_DIR = os.path.join(os.path.dirname(HERE), "vendor")
 UPLOADS_DIR = os.path.join(HERE, "uploads")  # portal-side logo previews
 DATABASE_URL = os.environ.get("PORTAL_DATABASE_URL", "")
@@ -368,7 +373,8 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(body)))
         self.send_header("X-Content-Type-Options", "nosniff")
-        self.send_header("X-Frame-Options", "DENY")
+        if not any(k.lower() == "x-frame-options" for k, _ in headers):
+            self.send_header("X-Frame-Options", "DENY")
         self.send_header("Referrer-Policy", "same-origin")
         for k, v in headers:
             self.send_header(k, v)
@@ -479,6 +485,17 @@ class Handler(BaseHTTPRequestHandler):
                 ("Cache-Control", "no-store"),
                 ("Content-Security-Policy", "default-src 'self'; img-src 'self' data:; style-src 'self' "
                  "'unsafe-inline'; script-src 'self' 'unsafe-inline'; frame-ancestors 'none'")])
+        if path == "/demo":  # dc runtime evaluates the page script via new Function; framed by / only
+            return self._file(DEMO_PATH, [
+                ("Cache-Control", "no-store"), ("X-Frame-Options", "SAMEORIGIN"),
+                ("Content-Security-Policy", "default-src 'self'; img-src 'self' data:; style-src 'self' "
+                 "'unsafe-inline'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; frame-ancestors 'self'")])
+        if path == "/Display.dc.html":
+            return self._file(DISPLAY_PATH, [("Cache-Control", "no-store")])
+        if path == "/support.js":
+            return self._file(SUPPORT_PATH, [("Cache-Control", "no-store")])
+        if path == "/og.png":
+            return self._file(OG_PATH, [("Cache-Control", "public, max-age=86400")])
         for prefix, root in (("/vendor/", VENDOR_DIR), ("/uploads/", UPLOADS_DIR)):
             if not path.startswith(prefix):
                 continue

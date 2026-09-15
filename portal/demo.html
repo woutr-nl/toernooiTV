@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Toernooi TV · Live demo</title>
+<meta name="robots" content="noindex">
+<script src="/vendor/react.production.min.js"></script>
+<script src="/vendor/react-dom.production.min.js"></script>
+<script src="/support.js"></script>
+</head>
+<body>
+<!-- Marketing demo: the real Display (sibling-fetched as /Display.dc.html) fed with fixed demo frames.
+     Must stay at path /demo so "./Display.dc.html" resolves. No fetches — works without box or tournament data. -->
+<x-dc>
+<helmet>
+<link href="/vendor/fonts.css" rel="stylesheet">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html,body{background:#0b0d11;overflow:hidden;}
+  @keyframes livepulse{0%,100%{opacity:1;}50%{opacity:.28;}}
+</style>
+</helmet>
+
+<div style="position:fixed; inset:0; background:#0b0d11; display:flex; align-items:center; justify-content:center; overflow:hidden;">
+  <div style="width:1920px; height:1080px; flex:none; transform:scale({{ fullScale }}); transform-origin:center center;">
+    <dc-import name="Display" hint-size="1920px,1080px"
+      club-name="{{ clubName }}" club-initials="{{ clubInitials }}" club-logo="{{ clubLogo }}" club-no-logo="{{ clubNoLogo }}"
+      clock-label="{{ clockLabel }}" date-label="{{ dateLabel }}"
+      frames="{{ frames }}" dots="{{ dots }}"
+      sponsor-name="{{ sponsorName }}" sponsor-tagline="{{ sponsorTagline }}" sponsor-logo="{{ sponsorLogo }}" sponsor-no-logo="{{ sponsorNoLogo }}"
+      style="width:1920px; height:1080px; display:block;">
+    </dc-import>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  TENNIS_POOL = [
+    ['R. van der Berg', 'T. Jansen', 'Open Toernooi'],
+    ['L. de Wit', 'K. Mulder', 'Open Toernooi'],
+    ['N. Bakker', 'P. Vermeer', 'Open Toernooi'],
+    ['D. Visser', 'F. Hofman', 'Jeugd Cup'],
+    ['S. Koster', 'M. de Jong', 'Open Toernooi'],
+    ['J. Willemsen', 'R. Prins', 'Veteranen 35+'],
+    ['A. Smeets', 'C. van Dijk', 'Jeugd Cup'],
+    ['E. Bos', 'H. Linde', 'Open Toernooi'],
+  ];
+  PADEL_POOL = [
+    ['de Vries / Smit', 'el Amrani / Janssen', 'Padel Masters'],
+    ['Kok / Maas', 'Peeters / Dijkstra', 'Padel Masters'],
+    ['Bos / Vos', 'Hendriks / Willems', 'Padel Masters'],
+    ['Brouwer / Timmermans', 'Scholten / Postma', 'Jeugd Cup'],
+    ['Mol / Aarts', 'Daatselaar / Knol', 'Padel Masters'],
+    ['Faber / Hoekstra', 'Veen / Driessen', 'Mix Toernooi'],
+    ['Lammers / Kuiper', 'Bruin / Sanders', 'Padel Masters'],
+    ['Graaf / Vink', 'Schipper / Reijnders', 'Mix Toernooi'],
+  ];
+
+  state = { t: 0, fullScale: 0.5 };
+
+  componentDidMount() {
+    this._iv = setInterval(() => this.setState(s => ({ t: s.t + 1 })), 1000);
+    this._onResize = () => this.setState({ fullScale: Math.min(window.innerWidth / 1920, window.innerHeight / 1080) });
+    window.addEventListener('resize', this._onResize);
+    this._onResize();
+  }
+  componentWillUnmount() { clearInterval(this._iv); window.removeEventListener('resize', this._onResize); }
+
+  renderVals() {
+    const t = this.state.t;
+    const now = new Date();
+    const pad = n => String(n).padStart(2, '0');
+    const days = ['zondag','maandag','dinsdag','woensdag','donderdag','vrijdag','zaterdag'];
+    const months = ['januari','februari','maart','april','mei','juni','juli','augustus','september','oktober','november','december'];
+
+    const TENNIS = '#c8f24a', PADEL = '#3da9fc';
+    const COURT_BG = 'radial-gradient(120% 90% at 50% -10%, #18222f 0%, #0b0d11 55%)';
+    const RESULTS_BG = 'radial-gradient(120% 95% at 50% -5%, #15202c 0%, #0b0d11 58%)';
+    const SPONSOR_BG = 'radial-gradient(120% 100% at 50% 28%, #122a44 0%, #090b0f 62%)';
+    const PROMO_BG = 'radial-gradient(120% 100% at 50% 18%, #20232b 0%, #0a0b0e 60%)';
+    const SC_T = ['6-3 6-4','7-5 6-4','6-2 3-6 6-4','6-4 7-6','6-1 6-2','7-6 7-5','3-6 6-4 6-3','6-0 6-2'];
+
+    // Display only renders "OP DE BAAN" for matches, so every demo tile is in play.
+    const courts = (pool, base, label, accent) => pool.slice(0, 4).map((m, i) => ({
+      key: base + '-' + (i + 1), base, num: i + 1, sportLabel: label, accent, tournament: m[2], t1: m[0], t2: m[1],
+      isPlaying: true, isNext: false, isIdle: false, isMatch: true, timeLabel: '', gridSpan: 'auto',
+    }));
+    const courtFrame = (pool, base, label, accent) => {
+      const list = courts(pool, base, label, accent);
+      return {
+        id: label, isCourt: true, isResults: false, isSponsor: false, isPromo: false, sportLabel: label, accent,
+        sub: [...new Set(list.map(c => c.tournament))].join(' · '), pageLabel: '', countLabel: list.length + ' banen',
+        cols: 'repeat(2, 1fr)', courts: list, results: [], bg: COURT_BG, dur: 6,
+      };
+    };
+    const results = this.TENNIS_POOL.concat([this.TENNIS_POOL[0]]).map((m, i) => ({
+      key: 'res-' + i, accent: TENNIS, tournament: m[2], winner: i % 2 ? m[1] : m[0], loser: i % 2 ? m[0] : m[1],
+      score: SC_T[i % SC_T.length], isScore: true, isWO: false,
+    }));
+
+    const frames = [
+      courtFrame(this.TENNIS_POOL, 'BAAN', 'TENNIS', TENNIS),
+      courtFrame(this.PADEL_POOL, 'PADEL', 'PADEL', PADEL),
+      { id: 'res-TENNIS', isCourt: false, isResults: true, isSponsor: false, isPromo: false, sportLabel: 'TENNIS', accent: TENNIS, sub: '',
+        pageLabel: '', countLabel: results.length + ' uitslagen', cols: 'repeat(3, 1fr)', results, courts: [], bg: RESULTS_BG, dur: 6 },
+      { id: 'sponsor', isCourt: false, isResults: false, isSponsor: true, isPromo: false, sportLabel: '', accent: '#7da7d4', sub: '',
+        pageLabel: '', countLabel: '', cols: '1fr', courts: [], results: [], bg: SPONSOR_BG, dur: 5 },
+      { id: 'promo', isCourt: false, isResults: false, isSponsor: false, isPromo: true, sportLabel: '', accent: '#ff5a3c', sub: '',
+        pageLabel: '', countLabel: '', cols: '1fr', courts: [], results: [], eyebrow: 'OOK OP JULLIE CLUB?',
+        message: 'Live banen, uitslagen en je sponsors op één scherm in de kantine.', cta: 'toernooitv.nl', bg: PROMO_BG, dur: 5 },
+    ];
+    const total = frames.reduce((a, f) => a + f.dur, 0);
+    let e = t % total, cur = 0;
+    while (e >= frames[cur].dur) { e -= frames[cur].dur; cur++; }
+    frames.forEach((f, i) => { f.op = i === cur ? 1 : 0; });
+
+    return {
+      fullScale: this.state.fullScale,
+      clubName: 'TC De Baseline', clubInitials: 'TB', clubLogo: '', clubNoLogo: true,
+      clockLabel: pad(now.getHours()) + ':' + pad(now.getMinutes()),
+      dateLabel: days[now.getDay()] + ' ' + now.getDate() + ' ' + months[now.getMonth()],
+      frames, dots: frames.map((f, i) => ({ op: i === cur ? 1 : 0.28 })),
+      sponsorName: 'Jouw Sponsor', sponsorTagline: 'Officiële partner van dit toernooi', sponsorLogo: '', sponsorNoLogo: true,
+    };
+  }
+}
+</script>
+</body>
+</html>
