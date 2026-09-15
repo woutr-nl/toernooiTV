@@ -71,6 +71,19 @@ class SettingsTest(unittest.TestCase):
         self.assertEqual(self.cfg()["display"]["secCourt"], 12)
         self.assertEqual(self.cfg()["display"]["sponsorName"], "S")
 
+    def test_show_walkovers(self):
+        self.assertIs(self.post({"display": {"clubName": "X"}})["display"]["showWalkovers"], True)
+        self.post({"display": {"showWalkovers": False}})
+        self.assertIs(self.cfg()["display"]["showWalkovers"], False)
+        # older portals never send the key: stored value kept
+        self.post({"display": {"sponsorName": "S"}})
+        self.assertIs(self.cfg()["display"]["showWalkovers"], False)
+        server.CONFIG = {}
+        server._load_config()
+        self.assertIs(self.cfg()["display"]["showWalkovers"], False)
+        self.assertIs(self.post({"display": {"showWalkovers": 1}})["display"]["showWalkovers"], True)
+        self.assertIs(self.post({"display": {"showWalkovers": 0}})["display"]["showWalkovers"], False)
+
     def test_logo_lifecycle(self):
         out = self.post({"display": {"clubLogo": PNG_URL}})
         url = out["display"]["clubLogo"]

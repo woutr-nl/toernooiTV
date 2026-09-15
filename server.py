@@ -125,6 +125,7 @@ DISPLAY_DEFAULTS = {
     "showPadel": True,
     "showSponsor": True,
     "showResults": True,
+    "showWalkovers": True,
     "showPromo": True,
     "secCourt": 8,
     "secSponsor": 6,
