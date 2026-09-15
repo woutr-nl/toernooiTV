@@ -134,13 +134,16 @@ and get a console back: `sudo systemctl disable --now toernooitv-kiosk; sudo sys
   (`appliance/update.sh`, run as root by `toernooitv-update.service`) fetches the
   tags from `origin`, checks out the newest `vX.Y.Z` tag, restarts the server,
   waits (60 s) until `/health` reports the new version, then restarts the kiosk.
-  A box already on or ahead of the newest release reports `up-to-date`.
+  A box already on or ahead of the newest release reports `up-to-date`. If `origin`
+  has no release tags yet, nothing changes and the box reports `no-release`, shown in
+  neutral grey as "Nog geen release beschikbaar" (not a failure).
 - **Rollback** — if the new version doesn't come up healthy, the previous commit is
   checked out again and server + kiosk are restarted (`rolled-back`). If fetching
-  fails (offline, remote unreachable) nothing changes (`failed`). Settings, cookie,
+  fails (offline, remote unreachable) or the checkout fails, nothing changes
+  (`failed`). Settings, cookie,
   tournaments, logos (`config.json`, `uploads/`) and wifi are never touched.
 - **Outcome** — `update-state.json` (`{status, from, to, startedAt, finishedAt, error}`,
-  status `running | ok | up-to-date | failed | rolled-back`), shown on the Software
+  status `running | ok | up-to-date | no-release | failed | rolled-back`), shown on the Software
   card and returned as `update` in `/config`. Logs: `journalctl -u toernooitv-update`.
 
 ## Portaal (beheer op afstand)
@@ -200,9 +203,10 @@ it, over the compose project's internal network.
    One-time: a new GHCR package is private, so `pull` fails with `denied` until you
    either make it public (GitHub → Packages → `toernooitv-portal` → Package settings →
    Change visibility → **Public**, recommended) or run `docker login ghcr.io` on the
-   VPS with a personal access token that has `read:packages`. `:latest` only exists
-   after the first `vX.Y.Z` tag pushed after the pipeline was added; until then set
-   `image:` to `ghcr.io/woutr-nl/toernooitv-portal:main`. Upgrade = `docker compose
+   VPS with a personal access token that has `read:packages`. `:latest` exists
+   once the pipeline has released a `vX.Y.Z` (the first green run on `main` tags the
+   current `VERSION`); before that, `image:` can point at
+   `ghcr.io/woutr-nl/toernooitv-portal:main`. Upgrade = `docker compose
    pull && docker compose up -d` (data lives in volumes).
 2. **Operator aanmaken** — against the running deployment:
    ```bash
@@ -308,20 +312,26 @@ installed before the portal need `sudo bash ./install-kiosk.sh` once after updat
 
 ## Een release publiceren
 
-1. Set `VERSION` to `X.Y.Z` and commit.
-2. `git tag vX.Y.Z && git push origin main vX.Y.Z` — the tag name must be `v` + the
-   `VERSION` content (the updater health-checks the served version against the
-   tag's `VERSION`). Tags with a `-` (e.g. `v1.2.0-test`) are never picked.
-3. Boxes pick it up on their next triggered update. The same tag publishes the portal
-   image `ghcr.io/woutr-nl/toernooitv-portal:X.Y.Z` and moves `:latest` (GitHub
-   Actions, `.github/workflows/portal-image.yml`); every push to `main` publishes
-   `:main` and `:<sha>`. Tags with a `-` publish only their own tag and never move
-   `:latest`. Nothing is pushed if the portal tests fail.
+1. Set `VERSION` to `X.Y.Z`, commit and push to `main`.
+2. GitHub Actions (`.github/workflows/portal-image.yml`) does the rest: every push to
+   `main` runs the portal tests and publishes `:main` and `:<sha>`; then the `release`
+   job checks `VERSION`. If it is a plain `X.Y.Z` and tag `vX.Y.Z` doesn't exist yet,
+   it retags that image as `ghcr.io/woutr-nl/toernooitv-portal:X.Y.Z` + `:latest` and
+   creates tag `vX.Y.Z` on the commit plus a GitHub Release. The rule is "untagged
+   plain `X.Y.Z` on `main`", so it also fires on pushes that don't touch `VERSION`.
+   An existing tag, or a `VERSION` like `dev`/`1.2.0-test`/missing, is skipped without
+   failing the run. Nothing is tagged or pushed if the portal tests fail.
+3. Boxes pick it up on their next triggered update.
+
+The tag name is always `v` + the `VERSION` content (the updater health-checks the
+served version against the tag's `VERSION`). Tagging by hand still works:
+`git tag vX.Y.Z && git push origin vX.Y.Z` publishes `:X.Y.Z` and moves `:latest`.
+Tags with a `-` (e.g. `v1.2.0-test`) are never picked by boxes or `install.sh`, publish
+only their own image tag and never move `:latest`.
 
 Never move or reuse a tag. If a release changes `appliance/*.service`,
 `appliance/sudoers` or `install-kiosk.sh`, re-run `sudo bash ./install-kiosk.sh` on
-the box after updating — the updater does not regenerate units or sudoers. Until the
-first tag (`v1.0.0`) is pushed, an update ends as `failed` (no release tags).
+the box after updating — the updater does not regenerate units or sudoers.
 
 ## Live match data (cookie-replay, multi-tournament)
 

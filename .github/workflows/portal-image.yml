@@ -53,3 +53,45 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+
+  # main push with an untagged plain X.Y.Z in VERSION → retag the image publish just
+  # pushed as :X.Y.Z + :latest, then create tag vX.Y.Z + GitHub Release. Done here
+  # rather than via the tag trigger: tags made with GITHUB_TOKEN start no workflows.
+  release:
+    needs: publish
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    concurrency: release-main
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - id: ver
+        name: Untagged plain X.Y.Z in VERSION?
+        run: |
+          V="$(tr -d '[:space:]' < VERSION 2>/dev/null || true)"
+          echo "$V" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' || { echo "VERSION '$V' is geen X.Y.Z — geen release"; exit 0; }
+          if git ls-remote --exit-code origin "refs/tags/v$V" >/dev/null; then
+            echo "tag v$V bestaat al — geen release"; exit 0
+          else
+            rc=$?; [ "$rc" -eq 2 ] || { echo "git ls-remote mislukt ($rc)"; exit "$rc"; }
+          fi
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+      - if: steps.ver.outputs.version
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - if: steps.ver.outputs.version
+        name: Retag published image as X.Y.Z + latest
+        run: |
+          IMG="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/toernooitv-portal"
+          docker buildx imagetools create "$IMG:$GITHUB_SHA" \
+            --tag "$IMG:${{ steps.ver.outputs.version }}" --tag "$IMG:latest"
+      - if: steps.ver.outputs.version
+        name: Tag + GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "v${{ steps.ver.outputs.version }}" --target "$GITHUB_SHA" --title "v${{ steps.ver.outputs.version }}" --generate-notes

@@ -1092,7 +1092,7 @@ def _resolve_pending(p):
     elif kind == "update":
         st = _update_state()
         if st and st.get("status") != "running" and now - _age(st.get("startedAt")) >= at - 2:
-            res = (st.get("status") in ("ok", "up-to-date"),
+            res = (st.get("status") in ("ok", "up-to-date", "no-release"),
                    str(st.get("status")) + ((": " + st["error"]) if st.get("error") else ""))
         elif now - at > UPDATE_TIMEOUT:
             res = (False, "geen resultaat")
