@@ -483,6 +483,29 @@ class LeadsTest(PortalBase):
             self.assertEqual(status, 200, path)
             self.assertIn("Toernooi TV · Portaal".encode(), text)
         self.assertEqual(self.raw("GET", "/portal.html")[0], 404)
+        _, hdrs, text = self.raw("GET", "/")
+        self.assertEqual(hdrs["X-Frame-Options"], "DENY")
+        for s in ('src="/demo"', "og:image", "KvK 76793796", "onderdeel van WOUTR", "info@toernooitv.nl", "€150", "€20",
+                  "TournamentSoftware", 'id="faq"', 'id="privacy"'):
+            self.assertIn(s.encode(), text, s)
+        self.assertNotIn(b'href="/">toernooitv.nl', text)
+
+    def test_demo_display_page(self):
+        status, hdrs, text = self.raw("GET", "/demo")
+        self.assertEqual(status, 200)
+        self.assertIn(b"dc-import", text)
+        self.assertIn(b"Display", text)
+        self.assertNotIn(b"fetch(", text)  # demo data only — no box or tournament data
+        self.assertIn("'unsafe-eval'", hdrs["Content-Security-Policy"])
+        self.assertIn("frame-ancestors 'self'", hdrs["Content-Security-Policy"])
+        self.assertEqual(hdrs.get_all("X-Frame-Options"), ["SAMEORIGIN"])
+        status, _, text = self.raw("GET", "/Display.dc.html")
+        self.assertEqual(status, 200)
+        self.assertIn(b"<x-dc>", text)
+        self.assertEqual(self.raw("GET", "/support.js")[0], 200)
+        status, hdrs, text = self.raw("GET", "/og.png")
+        self.assertEqual((status, hdrs["Content-Type"]), (200, "image/png"))
+        self.assertTrue(text.startswith(b"\x89PNG"))
 
     def test_valid_request_stored_and_mailed(self):
         self.assertEqual(self.demo(LEAD), (200, {"ok": True}))

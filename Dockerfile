@@ -4,6 +4,7 @@ COPY portal/requirements.txt portal/requirements.txt
 RUN pip install --no-cache-dir -r portal/requirements.txt
 COPY portal/ portal/
 COPY vendor/ vendor/
+COPY Display.dc.html support.js ./
 RUN useradd -r portal && mkdir -p portal/uploads && chown portal portal/uploads
 ENV PORTAL_HOST=0.0.0.0 PORTAL_PORT=8771
 USER portal

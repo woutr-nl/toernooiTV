@@ -266,6 +266,13 @@ Change a value and run `docker compose up -d` (recreates the container) to apply
 Port `465` uses SSL; any other port uses STARTTLS unless `PORTAL_SMTP_STARTTLS=0`
 (e.g. a local relay).
 
+The hero of the one-pager embeds a live TV preview from `/demo`: `portal/demo.html`
+drives the real `Display.dc.html` through `support.js` with fixed demo data (no box,
+login or tournament data), rotating between courts, results, sponsor and marketing
+screens. Both `Display.dc.html` and `support.js` are copied into the portal image for
+this, and the portal also serves them at `/Display.dc.html` and `/support.js`.
+`/og.png` (`portal/og.png`) is the social-sharing preview image.
+
 **Linking a box** — an unlinked box that reaches the portal shows
 **Portaal-koppelcode: ABC-123** at the bottom of the TV (if the box can't reach the
 portal, the TV shows `Portaal niet bereikbaar — <reden>` instead of the code). The operator clicks
