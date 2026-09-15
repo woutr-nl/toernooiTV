@@ -198,7 +198,8 @@ function BoxCard({ b }) {
       h(Badge, { color: a.color }, 'TS: ' + a.label),
       b.setupMode ? h(Badge, { color: AMBER }, 'Instelnetwerk actief') : null,
       b.internet === false ? h(Badge, { color: RED }, 'Geen internet') : null,
-      b.synced ? null : h(Badge, { color: AMBER }, 'Wijzigingen onderweg')));
+      b.synced ? null : h(Badge, { color: AMBER }, 'Wijzigingen onderweg'),
+      b.updateAvailable ? h(Badge, { color: AMBER }, 'Update beschikbaar (' + b.updateAvailable + ')') : null));
 }
 
 function Boxes({ me, actAs }) {
@@ -441,7 +442,10 @@ function ActionsCard({ d, reload }) {
       h('button', { onClick: () => send('reboot', 'De hele box opnieuw opstarten? Het scherm is ongeveer een minuut zwart.'), style: S.btn2, disabled: st.busy }, 'Box herstarten'),
       h('button', { onClick: () => send('update', 'Deze box bijwerken naar de nieuwste release?'), style: S.btn2, disabled: st.busy }, 'Nu bijwerken'),
       h('button', { onClick: () => send('logs'), style: S.btn2, disabled: st.busy }, 'Logs opvragen')),
-    h('div', { style: S.row }, h('span', { style: S.rowLabel }, 'Versie'), h('span', { style: { font: '700 16px ' + MONO } }, d.version || '—')),
+    h('div', { style: S.row }, h('span', { style: S.rowLabel }, 'Versie'),
+      h('span', { style: { display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap', justifyContent: 'flex-end' } },
+        h('span', { style: { font: '700 16px ' + MONO } }, d.version || '—'),
+        d.updateAvailable ? h('span', { style: { font: '600 13px Archivo', color: AMBER } }, 'Nieuwere versie beschikbaar: ' + d.updateAvailable) : null)),
     h('div', { style: { ...S.row, borderBottom: 'none', alignItems: 'baseline' } }, h('span', { style: S.rowLabel }, 'Laatste update'), h('span', { style: { font: '600 14px Archivo', color: bad ? RED : '#8a8578', textAlign: 'right' } }, updateLabel(u))),
     h(Msg, { text: st.msg, bad: st.bad }));
 }

@@ -51,6 +51,7 @@ class PortalBase(unittest.TestCase):
             c.execute("DROP SCHEMA public CASCADE")
             c.execute("CREATE SCHEMA public")
         portal.init_db()
+        portal._release = {"version": None, "at": time.time(), "refreshing": False}  # fresh: no GitHub fetch
         portal.set_operator("admin", "adminpass1")
         self.httpd = ThreadingHTTPServer(("127.0.0.1", 0), portal.Handler)
         threading.Thread(target=self.httpd.serve_forever, daemon=True).start()
@@ -116,6 +117,94 @@ class PortalBase(unittest.TestCase):
         with psycopg.connect(portal.DATABASE_URL) as c:
             cur = c.execute(sql, args)
             return cur.fetchall() if cur.description else []  # UPDATE/DELETE have no result set
+
+
+class TestUpdateFlag(PortalBase):
+    def test_tag_selection_and_version_gate(self):
+        self.assertEqual(portal._latest_from_tags(["v1.0.1", "v1.2.0-test", "v0.9.0", "not-a-tag"]), "1.0.1")
+        self.assertIsNone(portal._latest_from_tags([]))
+        self.assertEqual(portal._latest_from_tags(["v1.0.9", "v1.0.10"]), "1.0.10")
+        self.assertEqual(portal._latest_from_tags([None, 5, "v2.0.0"]), "2.0.0")
+        for bad in ("dev", "", "1.2.0-test", 102, None, ["1.0.2"]):
+            self.assertIsNone(portal._ver(bad), bad)
+        self.assertEqual(portal._ver("1.0.2"), (1, 0, 2))
+
+    def boxes_seed(self):
+        club, club_tok = self.club_with_user("Club A", "clubby")
+        versions = {"box-old": "1.0.1", "box-same": "1.0.2", "box-new": "1.0.3", "box-dev": "dev", "box-off": "1.0.1"}
+        for i, (box, version) in enumerate(versions.items()):
+            secret = SECRET + str(i)
+            self.linked_box(club, box, "AB%d-9KF" % i, secret)
+            self.sync(box, secret, version=version)
+        self.db("UPDATE boxes SET last_seen=%s WHERE box_id=%s", (time.time() - 3600, "box-off"))
+        portal._release["version"] = "1.0.2"
+        return club, club_tok
+
+    def flags(self, token):
+        s, out = self.req("GET", "/api/boxes", token=token)
+        self.assertEqual(s, 200)
+        return {b["boxId"]: b.get("updateAvailable") for b in out["boxes"]}
+
+    def detail_flag(self, token, box):
+        s, out = self.req("GET", "/api/boxes/" + box, token=token)
+        self.assertEqual(s, 200, out)
+        return out.get("updateAvailable")
+
+    def test_operator_sees_flag(self):
+        self.boxes_seed()
+        self.assertEqual(self.flags(self.op), {"box-old": "1.0.2", "box-same": None, "box-new": None,
+                                               "box-dev": None, "box-off": "1.0.2"})
+        self.assertEqual(self.detail_flag(self.op, "box-old"), "1.0.2")
+        self.assertEqual(self.detail_flag(self.op, "box-off"), "1.0.2")
+        for box in ("box-same", "box-new", "box-dev"):
+            self.assertIsNone(self.detail_flag(self.op, box), box)
+
+    def test_club_and_act_as_never_see_flag(self):
+        club, club_tok = self.boxes_seed()
+        for b in self.req("GET", "/api/boxes", token=club_tok)[1]["boxes"]:
+            self.assertNotIn("updateAvailable", b)
+        self.assertNotIn("updateAvailable", self.req("GET", "/api/boxes/box-old", token=club_tok)[1])
+        self.assertEqual(self.req("POST", "/api/act-as", {"clubId": club}, self.op)[0], 200)
+        self.assertEqual(set(self.flags(self.op).values()), {None})
+        self.assertIsNone(self.detail_flag(self.op, "box-old"))
+        self.assertEqual(self.req("POST", "/api/act-as", {"clubId": None}, self.op)[0], 200)
+        self.assertEqual(self.flags(self.op)["box-old"], "1.0.2")
+        self.assertEqual(self.detail_flag(self.op, "box-old"), "1.0.2")
+
+    def test_no_release_known(self):
+        self.boxes_seed()
+        portal._release["version"] = None
+        self.assertEqual(set(self.flags(self.op).values()), {None})
+        s, out = self.req("GET", "/api/boxes/box-old", token=self.op)
+        self.assertEqual((s, out.get("updateAvailable"), "error" in out), (200, None, False))
+
+    def test_refresh_release(self):
+        class Resp:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                return False
+
+            def read(self):
+                return b'[{"name":"v1.0.2"},{"name":"v1.3.0-test"},{"name":"v0.9.9"}]'
+
+        with unittest.mock.patch.object(portal.urllib.request, "urlopen", return_value=Resp()) as m:
+            self.assertEqual(portal._refresh_release(), "1.0.2")
+        self.assertEqual(m.call_args[1]["timeout"], 10)
+        self.assertEqual(m.call_args[0][0].get_header("User-agent"), "ToernooiTVPortal")
+        self.assertEqual((portal._release["version"], portal._release["refreshing"]), ("1.0.2", False))
+        portal._release.update(at=0.0, refreshing=True)
+        with unittest.mock.patch.object(portal.urllib.request, "urlopen", side_effect=urllib.error.URLError("down")):
+            self.assertIsNone(portal._refresh_release())
+        self.assertEqual((portal._release["version"], portal._release["refreshing"]), (None, False))
+        self.assertGreater(portal._release["at"], time.time() - 5)
+        # expired cache: the accessor answers immediately and refreshes in the background, once
+        portal._release.update(version="1.0.2", at=0.0, refreshing=False)
+        with unittest.mock.patch.object(portal.threading, "Thread") as t:
+            self.assertEqual(portal._release_version(), "1.0.2")
+            self.assertEqual(portal._release_version(), "1.0.2")
+        self.assertEqual(t.call_count, 1)
 
 
 class PortalTest(PortalBase):

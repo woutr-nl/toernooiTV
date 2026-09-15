@@ -175,6 +175,9 @@ portal database as soon as the box confirms it).
   `verify-appliance.sh` also checks that the portal answers.
 - Each box authenticates with its box-ID plus a secret generated on first contact
   (stored in `config.json` → `portal`; the portal keeps only a hash).
+- About once an hour the portal asks GitHub for the newest release (the highest plain
+  `vX.Y.Z` tag) and shows the operator an **Update beschikbaar** badge on boxes that
+  report an older version. It needs no configuration or credentials.
 
 **Hosting (Docker Compose)** — the portal runs from the image
 `ghcr.io/woutr-nl/toernooitv-portal` (tags: `latest` = newest release, `X.Y.Z` = a

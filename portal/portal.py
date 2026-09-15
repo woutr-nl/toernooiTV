@@ -40,6 +40,7 @@ import threading
 import time
 import traceback
 import urllib.parse
+import urllib.request
 from email.message import EmailMessage
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -83,6 +84,9 @@ LOGO_EXT = {"image/png": "png", "image/jpeg": "jpg", "image/svg+xml": "svg",
             "image/webp": "webp", "image/gif": "gif"}
 BOX_COMMANDS = ("restart", "reboot", "update", "logs")  # operator only
 CRED_COMMANDS = ("set_login", "clear_login", "set_cookie", "clear_cookie")
+# ponytail: first 100 tags only, no pagination — follow the Link header if the repo ever has more
+GITHUB_TAGS_URL = "https://api.github.com/repos/woutr-nl/toernooiTV/tags?per_page=100"
+RELEASE_TTL = 3600     # seconds between GitHub checks for the newest release
 
 mimetypes.add_type("font/woff2", ".woff2")
 _db_lock = threading.Lock()  # ponytail: global DB write lock — fine for one process; per-box locks if write volume grows
@@ -259,6 +263,51 @@ def _queue(c, box_id, kind, payload=None):
     cur = c.execute("INSERT INTO commands(box_id, kind, payload, created) VALUES (%s,%s,%s,%s) RETURNING id",
                     (box_id, kind, json.dumps(payload) if payload else None, time.time()))
     return {"ok": True, "commandId": cur.fetchone()["id"]}
+
+
+# ---- newest release (GitHub tags) --------------------------------------------
+_release = {"version": None, "at": 0.0, "refreshing": False}
+_release_lock = threading.Lock()
+
+
+def _ver(s):
+    m = re.fullmatch(r"([0-9]+)\.([0-9]+)\.([0-9]+)", s) if isinstance(s, str) else None
+    return tuple(map(int, m.groups())) if m else None
+
+
+def _latest_from_tags(names):
+    # same rule as appliance/update.sh + install.sh: plain vX.Y.Z tags only, nothing with a "-"
+    versions = [n[1:] for n in names if isinstance(n, str) and n.startswith("v") and _ver(n[1:])]
+    return max(versions, key=_ver, default=None)
+
+
+def _refresh_release():
+    """Fetch the newest release from GitHub into _release. Never raises; a failure clears it."""
+    version = None
+    try:
+        req = urllib.request.Request(GITHUB_TAGS_URL, headers={"User-Agent": "ToernooiTVPortal"})
+        with urllib.request.urlopen(req, timeout=10) as r:
+            version = _latest_from_tags(t.get("name") for t in json.loads(r.read()) if isinstance(t, dict))
+    except Exception:
+        version = None
+    finally:
+        with _release_lock:
+            _release.update(version=version, at=time.time(), refreshing=False)
+    return version
+
+
+def _release_version():
+    """Cached newest release ("X.Y.Z" or None); refreshes in the background, never blocks."""
+    with _release_lock:
+        if time.time() - _release["at"] >= RELEASE_TTL and not _release["refreshing"]:
+            _release["refreshing"] = True
+            threading.Thread(target=_refresh_release, daemon=True).start()
+        return _release["version"]
+
+
+def _update_available(version):
+    latest, mine = _release_version(), _ver(version)
+    return latest if mine and _ver(latest) and mine < _ver(latest) else None
 
 
 # ---- demo requests (public website) -----------------------------------------
@@ -639,7 +688,11 @@ class Handler(BaseHTTPRequestHandler):
                 rows = c.execute(q + " ORDER BY lower(cl.name), lower(b.name)").fetchall()
             else:
                 rows = c.execute(q + " WHERE b.club_id=%s ORDER BY lower(b.name)", (user["club_id"],)).fetchall()
-        return {"boxes": [_box_summary(r) for r in rows]}
+        boxes = [_box_summary(r) for r in rows]
+        if user["role"] == "operator":
+            for s in boxes:
+                s["updateAvailable"] = _update_available(s["version"])
+        return {"boxes": boxes}
 
     def api_box_detail(self, user, _body, box_id):
         operator = user["role"] == "operator"
@@ -662,6 +715,8 @@ class Handler(BaseHTTPRequestHandler):
             login=snap.get("login") or {}, cookieSet=bool(snap.get("cookieSet")), cookieHint=snap.get("cookieHint", ""),
             myTournaments=snap.get("myTournaments") or [], warnings=snap.get("configWarnings") or [],
             commands=history, logsAt=row["logs_at"] if operator else None)
+        if operator:
+            out["updateAvailable"] = _update_available(out["version"])
         return out
 
     def api_box_edit(self, user, body, box_id):
